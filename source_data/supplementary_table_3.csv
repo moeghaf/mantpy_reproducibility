@@ -1,0 +1,29 @@
+component,setting,values_searched,selected_image1,selected_image2
+Graph construction,Patch size (px),"16, 32, 64",32,32
+Graph construction,k-NN neighbours,"10, 20, 40, 80, 120, 160, 200, 240",120,160
+Graph construction,Background-edge threshold,"0, 0.25, 0.5, 0.75",0.25,0.25
+CNN architecture,Convolutional blocks,"2, 3, 4",3,3
+CNN architecture,Width (channels),"8, 16, 32",16,16
+CNN architecture,Readout,"avg pool 2×2, avg pool 1×1, max pool 2×2, flatten",avg pool 2×2,avg pool 2×2
+CNN architecture,Activation,"ReLU, GELU",ReLU,ReLU
+CNN architecture,Embedding dimension,"32, 64, 96, 128, 256",96,96
+CNN architecture,Projection head,"64, none",64,64
+CNN training,NT-Xent temperature,"0.1, 0.2, 0.5",0.2,0.2
+CNN training,Augmentation,"default, strong",default,default
+CNN training,Learning rate,"3×10^-4, 10^-3, 3×10^-3",10^-3,10^-3
+CNN training,Weight decay,"10^-6, 10^-5, 10^-4",10^-5,10^-5
+CNN training,Epochs,"100, 200, 400",200,200
+CNN training,Batch size,"512, 1,024","1,024","1,024"
+CNN training,Standardised embedding,"yes, no",yes,yes
+CNN training,Input window (× patch),"1, 2",1,1
+Edge features,Distance encoding,"log, raw, inverse, inverse square, Gaussian, none",log,log
+Edge features,Orientation,"yes, no",yes,yes
+Edge features,Continuity,"no, yes",no,no
+Edge features,Encoder,"GINE, GIN",GINE,GINE
+GraphMAE,Layers,"1, 2, 3, 4, 5, 6",4,4
+GraphMAE,Width,"64, 128, 256",128,128
+GraphMAE,Mask ratio,"0.25, 0.5, 0.75",0.5,0.5
+GraphMAE,Learning rate,"3×10^-4, 10^-3, 3×10^-3",10^-3,10^-3
+GraphMAE,Weight decay,"10^-5, 10^-4",10^-4,10^-4
+GraphMAE,Updates,"100, 200, 400",200,200
+GraphMAE,Standardised input,"no, yes",no,no

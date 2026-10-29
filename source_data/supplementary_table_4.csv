@@ -1,0 +1,16 @@
+component,setting,values_searched,selected
+Patches,Patch size (px),"5, 10, 15, 20",10
+CNN architecture,Convolutional blocks,"2, 3, 4",2
+,Width (channels),"8, 16, 32",32
+,Readout,"avg pool 2x2, avg pool 1x1, max pool 2x2, flatten",max pool 2x2
+,Activation,"ReLU, GELU",GELU
+,Embedding dimension,"32, 64, 96, 128, 256",96
+,Projection head,"64, none",64
+CNN training,NT-Xent temperature,"0.1, 0.2, 0.5",0.1
+,Augmentation,"default, strong",default
+,Learning rate,"3x10^{-4}, 10^{-3}, 3x10^{-3}",3x10^{-4}
+,Weight decay,"10^{-6}, 10^{-5}, 10^{-4}",10^{-4}
+,Epochs,"100, 200, 400",200
+,Batch size,"512, 1,024","1,024"
+,Standardised embedding,"yes, no",no
+Clustering,"Number of clusters, K",3-12,6

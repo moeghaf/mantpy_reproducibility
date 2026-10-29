@@ -1,0 +1,9 @@
+scheme,held_out,cell_cell_edges,cell_ecm_edges,edge_weight,composition,penalty_C,cleaning_rule,calibration,inner_accuracy
+mouse held out (main result),Mouse 1,radius 15 px,radius 15 px,Gaussian,count,elasticnet (1.11),-log P > 2.99; confidence >= 0.5; gate none,none,0.951
+mouse held out (main result),Mouse 2,Delaunay,"9-NN, <=20 px",inverse distance,fraction,l1 (31.067),1-P > 0.95; confidence >= 0.0; gate none,none,0.967
+ROI held out,ROI 001,"10-NN, <=40 px",Delaunay,Gaussian,log(1+count),l1 (0.034),1-P > 0.93; confidence >= 0.5; gate none,temperature,0.963
+ROI held out,ROI 002,radius 39 px,containing patch + 8 neighbours,Gaussian,log(1+count),elasticnet (0.774),margin > 0.86; confidence >= 0.7; gate none,none,0.965
+ROI held out,ROI 003,Delaunay,containing patch + 8 neighbours,none,log(1+count),l2 (0.01),-log P > 2.92; confidence >= 0.5; gate none,temperature,0.959
+ROI held out,ROI 004,Delaunay,8-NN,none,log(1+count),l1 (10.242),min-max -log P > 0.28; confidence >= 0.7; gate none,temperature,0.966
+ROI held out,ROI 005,Delaunay,containing patch + 8 neighbours,none,fraction,l2 (0.16),1-P > 0.94; confidence >= 0.7; gate none,temperature,0.967
+ROI held out,ROI 006,Delaunay,"Delaunay, <=60 px",inverse distance,fraction,elasticnet (34.338),1-P > 0.95; confidence >= 0.0; gate none; smoothing,temperature,0.956
