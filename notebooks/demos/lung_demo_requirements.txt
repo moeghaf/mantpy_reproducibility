@@ -1,0 +1,10 @@
+# Python 3.11, 3.12 or 3.13. Install once, then restart the notebook kernel.
+mantpy==1.0.2
+numpy==2.2.6
+pandas==2.2.3
+scipy==1.15.3
+scikit-learn==1.7.2
+anndata==0.12.3
+squidpy==1.8.2
+matplotlib==3.11.1
+ipykernel
