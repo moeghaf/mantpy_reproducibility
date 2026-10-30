@@ -15,9 +15,9 @@ optimisation. The [short demos](../demos/README.md) remain available separately.
 | [Liver controls](mantpy_liver_controls.ipynb) | Fold-specific selected classifiers, encoder stability and representation controls | Several hours or more (estimate) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_controls.ipynb) |
 | [Liver permutation test](mantpy_liver_permutation.ipynb) | All 70 label allocations with full ensemble refitting | Hours to days (estimate); resumable | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_permutation.ipynb) |
 
-Times exclude installation and downloads. Liver used an RTX 4070 SUPER for the
-CNN and CPU for the GNNs; allow 1–2.5 h on Colab T4/CPU. Full liver control and
-permutation runtimes have not yet been measured.
+Installation is excluded; first downloads and hardware can affect elapsed time.
+Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h on
+Colab T4/CPU. Full liver control and permutation runtimes have not yet been measured.
 
 To run:
 

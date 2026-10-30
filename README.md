@@ -29,8 +29,8 @@ without rerunning optimisation.
 | [Liver](notebooks/experiments/mantpy_liver_full.ipynb) | All 24 ROIs, held-out mouse prediction and integrated gradients | 48 min 47 s, local GPU/CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
 | [Lung](notebooks/experiments/mantpy_lung_full.ipynb) | All six ROIs, cell–ECM associations and held-out mouse label reconstruction | 12 min 38 s, Colab CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
 
-Times exclude installation and downloads. Liver used an RTX 4070 SUPER for the
-CNN and CPU for the GNNs; allow 1–2.5 h on Colab.
+Installation is excluded; first downloads and hardware can affect elapsed time.
+Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h on Colab.
 [Liver supplementary controls](notebooks/experiments/mantpy_liver_controls.ipynb)
 and the [exact permutation test](notebooks/experiments/mantpy_liver_permutation.ipynb)
 are separate, longer runs. See [full experiment setup](notebooks/experiments/README.md).
