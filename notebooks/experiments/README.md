@@ -7,13 +7,13 @@
 Recompute the paper experiments with the published settings, without rerunning
 optimisation. The [short demos](../demos/README.md) remain available separately.
 
-| Notebook | Analysis | Estimated Colab runtime |
-|---|---|---|
-| [Intestine](mantpy_intestine_full.ipynb) | Both images, method comparisons, training seeds and graph controls | 1–3 h, T4 |
-| [Liver](mantpy_liver_full.ipynb) | All ROIs, mouse-held-out prediction and integrated gradients | 1–2.5 h, T4/CPU |
-| [Lung](mantpy_lung_full.ipynb) | Cell–ECM associations, both held-out mice and repeated label reconstruction | 5–15 min with controls, CPU |
-| [Liver controls](mantpy_liver_controls.ipynb) | Fold-specific selected classifiers, encoder stability and representation controls | Longer; time each stage |
-| [Liver permutation test](mantpy_liver_permutation.ipynb) | All 70 label allocations with full ensemble refitting | Many hours; resumable |
+| Notebook | Analysis | Estimated Colab runtime | Colab |
+|---|---|---|---|
+| [Intestine](mantpy_intestine_full.ipynb) | Both images, method comparisons, training seeds and graph controls | 1–3 h, T4 | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
+| [Liver](mantpy_liver_full.ipynb) | All ROIs, mouse-held-out prediction and integrated gradients | 1–2.5 h, T4/CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
+| [Lung](mantpy_lung_full.ipynb) | Cell–ECM associations, both held-out mice and repeated label reconstruction | 5–15 min with controls, CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
+| [Liver controls](mantpy_liver_controls.ipynb) | Fold-specific selected classifiers, encoder stability and representation controls | Longer; time each stage | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_controls.ipynb) |
+| [Liver permutation test](mantpy_liver_permutation.ipynb) | All 70 label allocations with full ensemble refitting | Many hours; resumable | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_permutation.ipynb) |
 
 Estimates exclude installation and downloads. Runtime depends on hardware.
 
@@ -26,9 +26,8 @@ jupyter lab
 ```
 
 Use `intestine_requirements.txt` or `liver_requirements.txt` for those studies.
-On Colab, keep the default Latest runtime; run setup, restart when requested,
-then run all cells. For the inspection bundle, upload `experiment_setup.py`
-and `mantpy_experiment_companions.zip` beside the notebook before running it.
+On Colab, use a button above and keep the default Latest runtime. Run setup,
+restart when requested, then run all cells; companion files download automatically.
 
 Models are fitted afresh using the saved selections for each training fold.
 Completed stages can resume from verified checkpoints in `results/`.
