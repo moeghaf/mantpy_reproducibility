@@ -30,6 +30,9 @@ tutorials. Data download automatically; results are saved in `demo_results/`.
 **On Colab:** keep the default **Latest** runtime, with a GPU for intestine/liver
 and CPU for lung. Run setup, restart when requested, then run all cells.
 
+[Full experiment notebooks](notebooks/experiments/README.md) replay the complete
+analyses with the selected settings, preserving the paper's folds and repeats.
+
 [Mantpy package](https://github.com/moeghaf/Mantpy) ·
 [Source data](source_data/) ·
 [Paper figure code](figures/)

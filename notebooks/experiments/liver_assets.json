@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "study": "liver",
+  "files": [
+    {
+      "path": "liver_helpers.py",
+      "sha256": "bff9064a3f5383ffc8c160f932503fb77d7ae350f595860c2ee0f4da2d25039a"
+    },
+    {
+      "path": "liver_requirements.txt",
+      "sha256": "5caf39be3084c200d7962d03534140dc05a4b7c570e471ed06d9b4a4918c33fa"
+    },
+    {
+      "path": "liver_selected.json",
+      "sha256": "db57449edee2c78e54354898c542b1383466f0d1ada6202487bdf84220286f41"
+    },
+    {
+      "path": "liver_analysis/__init__.py",
+      "sha256": "36e5e6803b93cf91596165db78ff0ddc9d9d37fa346628eeb6a93359846e1f9d"
+    },
+    {
+      "path": "liver_analysis/data.py",
+      "sha256": "2c958c0f51dada4e96b9e78cfa0e69e47d7e6bf9c356707e249082802b7ad2b3"
+    },
+    {
+      "path": "liver_analysis/descriptive.py",
+      "sha256": "784ea7147991e18a9636accea32c800756cece59206bf38ed51276e15508661d"
+    },
+    {
+      "path": "liver_analysis/encoder.py",
+      "sha256": "98b97d003be3cf417b30dc68f9f1b54cac14791110c3197a020077ff9e09dac4"
+    },
+    {
+      "path": "liver_analysis/fold_preprocessing.py",
+      "sha256": "19570cb8535164467a085f22e3421eeea8f01242316a2d57943432f67e6a1b62"
+    },
+    {
+      "path": "liver_analysis/paper_partition.npz",
+      "sha256": "e1773dec78d0d540c5b142cd90654f1c08905365442d3872563372bd06e39411"
+    }
+  ]
+}

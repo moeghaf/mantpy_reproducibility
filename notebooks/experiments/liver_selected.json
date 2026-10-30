@@ -1,0 +1,542 @@
+{
+  "schema_version": 1,
+  "dataset": {
+    "loader": "mantpy.datasets.schistosoma_ecm",
+    "zenodo_record": "21538382",
+    "n_rois": 24,
+    "n_mice": 8
+  },
+  "patch_size": 10,
+  "K": 6,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "normalization": {
+    "cofactor": 1.0,
+    "percentile": 99.5,
+    "scope": "cohort"
+  },
+  "cnn": {
+    "latent_dim": 96,
+    "projection_dim": 64,
+    "temperature": 0.1,
+    "epochs": 200,
+    "batch_size": 1024,
+    "lr": 0.0003,
+    "weight_decay": 0.0001
+  },
+  "fixed_gnn": {
+    "graph_type": "delaunay",
+    "conv": "sage",
+    "hidden_dim": 64,
+    "n_layers": 2,
+    "aggr": "mean",
+    "norm": "none",
+    "residual": false,
+    "activation": "relu",
+    "dropout": 0.2,
+    "input_dropout": 0.0,
+    "optimizer": "adam",
+    "lr": 0.005,
+    "weight_decay": 0.0001,
+    "epochs": 120,
+    "lr_schedule": "constant",
+    "class_weight": true,
+    "label_smoothing": 0.0
+  },
+  "ig_steps": 50,
+  "nested_gnn": {
+    "mouse_01": {
+      "held_mouse": "mouse_01",
+      "trial": 77,
+      "inner_objective": 0.3012439550522155,
+      "config": {
+        "graph_type": "radius50",
+        "conv": "sage",
+        "hidden_dim": 256,
+        "n_layers": 4,
+        "aggr": "mean",
+        "norm": "none",
+        "residual": true,
+        "activation": "gelu",
+        "dropout": 0.24821934257688338,
+        "input_dropout": 0.017203833959224455,
+        "optimizer": "adam",
+        "lr": 0.0021082298958799745,
+        "weight_decay": 3.1902929386168413e-06,
+        "epochs": 300,
+        "lr_schedule": "constant",
+        "class_weight": true,
+        "label_smoothing": 0.02427142239538633
+      },
+      "n_trials": 80
+    },
+    "mouse_02": {
+      "held_mouse": "mouse_02",
+      "trial": 59,
+      "inner_objective": 0.23912914079262682,
+      "config": {
+        "graph_type": "radius40",
+        "conv": "sage",
+        "hidden_dim": 128,
+        "n_layers": 4,
+        "aggr": "max",
+        "norm": "layer",
+        "residual": true,
+        "activation": "relu",
+        "dropout": 0.012554535037485515,
+        "input_dropout": 0.12838015256962793,
+        "optimizer": "adam",
+        "lr": 0.028189702201247415,
+        "weight_decay": 1.3879818555987034e-05,
+        "epochs": 500,
+        "lr_schedule": "constant",
+        "class_weight": true,
+        "label_smoothing": 0.03632470442507244
+      },
+      "n_trials": 80
+    },
+    "mouse_03": {
+      "held_mouse": "mouse_03",
+      "trial": 72,
+      "inner_objective": 0.26314238448852906,
+      "config": {
+        "graph_type": "radius50",
+        "conv": "sage",
+        "hidden_dim": 128,
+        "n_layers": 4,
+        "aggr": "mean",
+        "norm": "none",
+        "residual": false,
+        "activation": "relu",
+        "dropout": 0.20718348545278584,
+        "input_dropout": 0.21714845005756228,
+        "optimizer": "adam",
+        "lr": 0.0038900374360165317,
+        "weight_decay": 5.433476306997239e-06,
+        "epochs": 200,
+        "lr_schedule": "constant",
+        "class_weight": true,
+        "label_smoothing": 0.029362803099888295
+      },
+      "n_trials": 80
+    },
+    "mouse_04": {
+      "held_mouse": "mouse_04",
+      "trial": 69,
+      "inner_objective": 0.3450570919198149,
+      "config": {
+        "graph_type": "radius40",
+        "conv": "gat",
+        "hidden_dim": 64,
+        "n_layers": 3,
+        "heads": 4,
+        "norm": "batch",
+        "residual": true,
+        "activation": "gelu",
+        "dropout": 0.2738879975557685,
+        "input_dropout": 0.16661482484364207,
+        "optimizer": "adam",
+        "lr": 0.020396194832896234,
+        "weight_decay": 2.0568859483708522e-05,
+        "epochs": 300,
+        "lr_schedule": "cosine",
+        "class_weight": true,
+        "label_smoothing": 0.08990173054052913
+      },
+      "n_trials": 80
+    },
+    "mouse_05": {
+      "held_mouse": "mouse_05",
+      "trial": 46,
+      "inner_objective": 0.298622351659689,
+      "config": {
+        "graph_type": "radius40",
+        "conv": "sage",
+        "hidden_dim": 128,
+        "n_layers": 4,
+        "aggr": "mean",
+        "norm": "none",
+        "residual": true,
+        "activation": "relu",
+        "dropout": 0.28138178886408965,
+        "input_dropout": 0.1425840859728163,
+        "optimizer": "adam",
+        "lr": 0.005611958049649273,
+        "weight_decay": 2.0559740930295268e-05,
+        "epochs": 500,
+        "lr_schedule": "cosine",
+        "class_weight": true,
+        "label_smoothing": 0.03229767553712194
+      },
+      "n_trials": 80
+    },
+    "mouse_06": {
+      "held_mouse": "mouse_06",
+      "trial": 76,
+      "inner_objective": 0.25888910534718074,
+      "config": {
+        "graph_type": "radius50",
+        "conv": "gin",
+        "hidden_dim": 256,
+        "n_layers": 2,
+        "train_eps": false,
+        "norm": "batch",
+        "residual": false,
+        "activation": "relu",
+        "dropout": 0.3461831482023608,
+        "input_dropout": 0.2610018134832177,
+        "optimizer": "adam",
+        "lr": 0.004690033086271191,
+        "weight_decay": 1.6674439452987457e-06,
+        "epochs": 200,
+        "lr_schedule": "cosine",
+        "class_weight": true,
+        "label_smoothing": 0.01252150821691057
+      },
+      "n_trials": 80
+    },
+    "mouse_07": {
+      "held_mouse": "mouse_07",
+      "trial": 74,
+      "inner_objective": 0.2513439928225844,
+      "config": {
+        "graph_type": "radius40",
+        "conv": "sage",
+        "hidden_dim": 128,
+        "n_layers": 4,
+        "aggr": "mean",
+        "norm": "none",
+        "residual": true,
+        "activation": "gelu",
+        "dropout": 0.04933108615198927,
+        "input_dropout": 0.22593874825099458,
+        "optimizer": "adam",
+        "lr": 0.00835493587709956,
+        "weight_decay": 1.5575260346381467e-06,
+        "epochs": 300,
+        "lr_schedule": "constant",
+        "class_weight": true,
+        "label_smoothing": 0.02199509981783933
+      },
+      "n_trials": 80
+    },
+    "mouse_08": {
+      "held_mouse": "mouse_08",
+      "trial": 78,
+      "inner_objective": 0.28581166294124855,
+      "config": {
+        "graph_type": "radius40",
+        "conv": "sage",
+        "hidden_dim": 128,
+        "n_layers": 4,
+        "aggr": "mean",
+        "norm": "none",
+        "residual": true,
+        "activation": "relu",
+        "dropout": 0.0210705217418272,
+        "input_dropout": 0.13814434225642175,
+        "optimizer": "adam",
+        "lr": 0.014545949255876182,
+        "weight_decay": 0.00047467590110792583,
+        "epochs": 500,
+        "lr_schedule": "constant",
+        "class_weight": true,
+        "label_smoothing": 0.012157175838653146
+      },
+      "n_trials": 80
+    }
+  },
+  "composition_lr": {
+    "mouse_01": {
+      "C": 1.0,
+      "inner_nll": {
+        "0.01": 0.8669425398316791,
+        "0.1": 0.6480513824429208,
+        "1.0": 0.42471939551861226,
+        "10.0": 0.4347901987912856
+      }
+    },
+    "mouse_02": {
+      "C": 1.0,
+      "inner_nll": {
+        "0.01": 0.8411520460413067,
+        "0.1": 0.6103607471333191,
+        "1.0": 0.4616289118487895,
+        "10.0": 0.4909933069478143
+      }
+    },
+    "mouse_03": {
+      "C": 10.0,
+      "inner_nll": {
+        "0.01": 0.8406641821669,
+        "0.1": 0.5751533145902102,
+        "1.0": 0.3126616754692469,
+        "10.0": 0.16531730987658544
+      }
+    },
+    "mouse_04": {
+      "C": 10.0,
+      "inner_nll": {
+        "0.01": 0.857344691279443,
+        "0.1": 0.6372624872719932,
+        "1.0": 0.44873915510675927,
+        "10.0": 0.4101654425546216
+      }
+    },
+    "mouse_05": {
+      "C": 10.0,
+      "inner_nll": {
+        "0.01": 0.869121614300248,
+        "0.1": 0.6879533702251958,
+        "1.0": 0.47366709529258555,
+        "10.0": 0.4060728466639606
+      }
+    },
+    "mouse_06": {
+      "C": 1.0,
+      "inner_nll": {
+        "0.01": 0.8740433370227135,
+        "0.1": 0.7262383432685077,
+        "1.0": 0.5919068467930141,
+        "10.0": 0.6295288415782706
+      }
+    },
+    "mouse_07": {
+      "C": 10.0,
+      "inner_nll": {
+        "0.01": 0.8682541770170351,
+        "0.1": 0.6724440589547847,
+        "1.0": 0.45680688691365756,
+        "10.0": 0.4143025700909306
+      }
+    },
+    "mouse_08": {
+      "C": 1.0,
+      "inner_nll": {
+        "0.01": 0.8745278557925332,
+        "0.1": 0.7059730792033377,
+        "1.0": 0.5763799823716594,
+        "10.0": 0.7388407228440482
+      }
+    }
+  },
+  "provenance": {
+    "mouse_01": {
+      "best_config_sha256": "24885d6eeb3d54f5839b799e292cfca117cd868b717998baf4c7701db16723d4",
+      "source": "liver3bo_20261024/fold_0/classifier_bo/fold_mouse_01/best_config.json"
+    },
+    "mouse_02": {
+      "best_config_sha256": "c8f227ecb17ecfd476efcb4eaeeb4ff1e0c966214ff736cfecf91516f2e3b639",
+      "source": "liver3bo_20261024/fold_1/classifier_bo/fold_mouse_02/best_config.json"
+    },
+    "mouse_03": {
+      "best_config_sha256": "b55c009aa44badb71be7ec80c1ac973d876694e7e6c6ed03ccf4d02e606a7782",
+      "source": "liver3bo_20261024/fold_2/classifier_bo/fold_mouse_03/best_config.json"
+    },
+    "mouse_04": {
+      "best_config_sha256": "4947028fe59965ee572338324470e02483a055e9df85b8fd3a4667b4076a31fc",
+      "source": "liver3bo_20261024/fold_3/classifier_bo/fold_mouse_04/best_config.json"
+    },
+    "mouse_05": {
+      "best_config_sha256": "5ac53f5583d9ed7e29f54ce3d5aa5175cea20309cfb8c13d2917cfeb19ea54d0",
+      "source": "liver3bo_20261024/fold_4/classifier_bo/fold_mouse_05/best_config.json"
+    },
+    "mouse_06": {
+      "best_config_sha256": "f6f7d4c19fdcbdb230da637aa3b69de4899da29ae1419b8f9b16b02a6b5e11ea",
+      "source": "liver3bo_20261024/fold_5/classifier_bo/fold_mouse_06/best_config.json"
+    },
+    "mouse_07": {
+      "best_config_sha256": "093897007b7a88ba268ea564164c9696e47bc27d7fda2992449951593130ecb3",
+      "source": "liver3bo_20261024/fold_6/classifier_bo/fold_mouse_07/best_config.json"
+    },
+    "mouse_08": {
+      "best_config_sha256": "98284399a94e5acdfc5364f9dabad1a64fd4253ee56881dbc173b22f8b8ff469",
+      "source": "liver3bo_20261024/fold_7/classifier_bo/fold_mouse_08/best_config.json"
+    }
+  },
+  "paper_partition": {
+    "source_labels_sha256": "a598e3391d69ae73415750559b1a6fcc1020fefb5de5051f96d459e9a849731d",
+    "n_signal": 107740,
+    "raw_to_ecm_label": {
+      "2": 0,
+      "5": 1,
+      "0": 2,
+      "3": 3,
+      "4": 4,
+      "1": 5
+    }
+  },
+  "paper_reference": {
+    "fixed_mouse_accuracy": 1.0,
+    "fixed_mouse_auc": 1.0,
+    "fixed_correct_rois": 20,
+    "composition_lr_mouse_auc": 0.9375,
+    "composition_lr_accuracy": 0.75,
+    "permutation_p": 0.05714285714285714,
+    "genotype_permutation_p": 0.05555555555555555,
+    "selected_encoder_five_seed_stability": 0.81
+  },
+  "fold_isolated_composition_lr": {
+    "L3": {
+      "mouse_01": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8657440281328449,
+          "0.1": 0.6155417464147707,
+          "1.0": 0.30868899639190983,
+          "10.0": 0.1819954369598157
+        }
+      },
+      "mouse_02": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8356531230797224,
+          "0.1": 0.561202703287951,
+          "1.0": 0.3305382187010823,
+          "10.0": 0.22846552462505915
+        }
+      },
+      "mouse_03": {
+        "C": 1.0,
+        "inner_nll": {
+          "0.01": 0.8628227747390126,
+          "0.1": 0.634968086124082,
+          "1.0": 0.4858758484540899,
+          "10.0": 0.6110091616846021
+        }
+      },
+      "mouse_04": {
+        "C": 1.0,
+        "inner_nll": {
+          "0.01": 0.8822948048012567,
+          "0.1": 0.7216433812774115,
+          "1.0": 0.5914218626217514,
+          "10.0": 0.9878901198371672
+        }
+      },
+      "mouse_05": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8583224834161408,
+          "0.1": 0.6009128786741983,
+          "1.0": 0.32200845358153,
+          "10.0": 0.2113427385715176
+        }
+      },
+      "mouse_06": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8754435563726615,
+          "0.1": 0.7010629305620144,
+          "1.0": 0.5108109669480857,
+          "10.0": 0.4711202484569421
+        }
+      },
+      "mouse_07": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.859823192930662,
+          "0.1": 0.6031788187891741,
+          "1.0": 0.3260264318740297,
+          "10.0": 0.25194916877492324
+        }
+      },
+      "mouse_08": {
+        "C": 1.0,
+        "inner_nll": {
+          "0.01": 0.8665602904974146,
+          "0.1": 0.6340444581899668,
+          "1.0": 0.39708873378389925,
+          "10.0": 0.4216464958353317
+        }
+      }
+    },
+    "L3b": {
+      "mouse_01": {
+        "C": 1.0,
+        "inner_nll": {
+          "0.01": 0.8645849090146295,
+          "0.1": 0.6379822184210585,
+          "1.0": 0.41535588570729287,
+          "10.0": 0.44897995853063183
+        }
+      },
+      "mouse_02": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8300616489225213,
+          "0.1": 0.5814783036111912,
+          "1.0": 0.4286926834207927,
+          "10.0": 0.41735472915968674
+        }
+      },
+      "mouse_03": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8403541613410981,
+          "0.1": 0.5760388486330642,
+          "1.0": 0.3128183164740918,
+          "10.0": 0.16946297118818307
+        }
+      },
+      "mouse_04": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8558956943242698,
+          "0.1": 0.6342223444725054,
+          "1.0": 0.4506759452521759,
+          "10.0": 0.4077158169632925
+        }
+      },
+      "mouse_05": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.871706849412723,
+          "0.1": 0.6958552980605973,
+          "1.0": 0.47962431348538875,
+          "10.0": 0.4118807329386849
+        }
+      },
+      "mouse_06": {
+        "C": 1.0,
+        "inner_nll": {
+          "0.01": 0.8735739186481608,
+          "0.1": 0.7227265609354669,
+          "1.0": 0.58222268867185,
+          "10.0": 0.6149288220853071
+        }
+      },
+      "mouse_07": {
+        "C": 10.0,
+        "inner_nll": {
+          "0.01": 0.8687920084252908,
+          "0.1": 0.673568843290588,
+          "1.0": 0.4652863282604875,
+          "10.0": 0.44637715350984486
+        }
+      },
+      "mouse_08": {
+        "C": 1.0,
+        "inner_nll": {
+          "0.01": 0.8768102670860708,
+          "0.1": 0.717662949454869,
+          "1.0": 0.5951241721874805,
+          "10.0": 0.7832061537146685
+        }
+      }
+    }
+  },
+  "control_protocol": {
+    "nested_gnn_loss": "patch_sum",
+    "graph_ablations_loss": "patch_sum",
+    "shuffled_graph_seed": "zero-based held-mouse fold index",
+    "fold_isolated_loss": "roi_mean",
+    "fold_isolated_encoder_seed": 0,
+    "fold_isolated_normalization_scope": "training mice"
+  }
+}

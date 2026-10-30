@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "study": "lung",
+  "files": [
+    {
+      "path": "lung_helpers.py",
+      "sha256": "915ca27fdba136870ac6fb6be34f2394cfa739613e9d8ede523156dca477ff34"
+    },
+    {
+      "path": "lung_requirements.txt",
+      "sha256": "49e95a8ec89bc39208c08a92d40451dde6685a45713849d98f41667c872b5d31"
+    },
+    {
+      "path": "lung_selected.json",
+      "sha256": "8f16ea2f13b010357d8f0f7992ec75248f02706f0d49d9f95e4e911d0aa684f3"
+    },
+    {
+      "path": "lung_analysis/__init__.py",
+      "sha256": "fa91b719559029d1588b1c40e65b4cd49c442f547af9fc2857bb499688b9afb9"
+    },
+    {
+      "path": "lung_analysis/association.py",
+      "sha256": "378cc1add32ac1e72ae381d4fade96d9963566890ed851f1014c0509e1f477a0"
+    },
+    {
+      "path": "lung_analysis/benchmark.py",
+      "sha256": "9ec04f4e92fc8a44584a83226533944f205421aceb6077aac97b744e1815d93c"
+    },
+    {
+      "path": "lung_analysis/cleaning.py",
+      "sha256": "1995bc4686205368667d9c70dca886a3d1099f58708917f32c073c4bc4f3cf59"
+    },
+    {
+      "path": "lung_analysis/data.py",
+      "sha256": "94534c638beecbc8fc1cb30b47389b82363ecb2e674bf902fbeffd7b244074f6"
+    },
+    {
+      "path": "lung_analysis/features.py",
+      "sha256": "b55052b421f5e234ce5e5480fa88666790f58cc9a45318c945b343b7dd77429a"
+    },
+    {
+      "path": "lung_analysis/graphs.py",
+      "sha256": "9a19f17f7b785c7f672a2e4aab66c76c594b94d949c90a7e9f93da4e186d46ac"
+    },
+    {
+      "path": "lung_analysis/learners/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "lung_analysis/learners/tabular.py",
+      "sha256": "4bf86e4e79fde95ecc6b256cafc7901780c0660f3ed700fe2390871986b74d6b"
+    },
+    {
+      "path": "lung_analysis/mantpy_graphs.py",
+      "sha256": "eae1390bf80b87d4229adaab4df0eae49e1ffc65384c9d74d4b6a342ebaa2e1f"
+    },
+    {
+      "path": "lung_analysis/metrics.py",
+      "sha256": "f7c96c7273db8cf030ff3a6230f500484053d8cd3daa8579fb778e13fecda99d"
+    },
+    {
+      "path": "lung_analysis/pipeline.py",
+      "sha256": "fb5d69a29a62c0680c3238b41a5ccc99ebcf6ba0b6e00bc4bd3043bf20454bc1"
+    },
+    {
+      "path": "lung_analysis/realisations.py",
+      "sha256": "de96ddda682604632ef51166ea4e27a08f0b6729c17973ded86b3ef5cf510bca"
+    },
+    {
+      "path": "lung_analysis/target_refit.py",
+      "sha256": "4495b1e794ec5f79c59e49e1705727bc4eaa359a3d68a6373cfc8af7057b7315"
+    }
+  ]
+}

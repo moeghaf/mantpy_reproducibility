@@ -1,0 +1,17 @@
+# Python 3.11, 3.12 or 3.13. These pin the public API versions used by this experiment.
+# The paper's native comparators used these exact method versions.
+mantpy[patch,gnn]==1.0.2
+torch-geometric==2.8.0
+pybanksy==1.3.5
+cellcharter==0.3.7
+torchgmm==0.1.4
+utag @ git+https://github.com/ElementoLab/utag.git@056cb87ee
+# Native comparator compatibility (pandas 3 / AnnData 0.13 support came later).
+anndata==0.12.3
+pandas==2.2.3
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+scanpy==1.11.5
+squidpy==1.8.2
+ipykernel

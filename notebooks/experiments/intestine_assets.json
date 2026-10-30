@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "study": "intestine",
+  "files": [
+    {
+      "path": "intestine_helpers.py",
+      "sha256": "219b22b98af12fa85ffbd0fb6e9e60381f34fe776c294e82339e7864c89d9777"
+    },
+    {
+      "path": "intestine_requirements.txt",
+      "sha256": "9221f1807e590a616cd17b7c2b4d1166627c3a2681830fbf6eef08e6cfeacfdb"
+    },
+    {
+      "path": "intestine_selected.json",
+      "sha256": "efded84a130327aefadbf819250c26604aa657a6e6a54856e0df9faa3c69af89"
+    }
+  ]
+}
