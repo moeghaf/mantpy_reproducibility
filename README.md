@@ -7,6 +7,10 @@
 Short tutorials and full experiments demonstrate ECM analysis from image loading
 to spatial graphs and interpretation.
 
+This checkout contains the development API migration. Install its matching
+package before running; see [development setup](#development-api-inspection).
+The Colab buttons and measured times below refer to the published reference.
+
 ## Short tutorials
 
 | Notebook | Analysis | Measured runtime | Colab |
@@ -39,6 +43,8 @@ are separate, longer runs. See [full experiment setup](notebooks/experiments/REA
 
 **To run locally** (Python 3.11/3.12/3.13):
 
+Install the matching Mantpy development wheel or source checkout first.
+
 ```bash
 cd notebooks/demos
 python -m pip install -r fig2_demo_requirements.txt jupyterlab
@@ -49,7 +55,7 @@ Use `liver_demo_requirements.txt` or `lung_demo_requirements.txt` for the other
 tutorials. For full experiments, use the requirements in `notebooks/experiments/`.
 Data download automatically.
 
-**On Colab:** keep the default **Latest** runtime, with a GPU for intestine/liver
+**Published reference on Colab:** keep the default **Latest** runtime, with a GPU for intestine/liver
 and CPU for lung. Run setup, restart when requested, then run all cells.
 
 [Mantpy package](https://github.com/moeghaf/Mantpy) ·
@@ -59,3 +65,21 @@ and CPU for lung. Run setup, restart when requested, then run all cells.
 Ghafoor et al. (2026).
 *[Mantpy: a framework for extracellular matrix analysis in spatial proteomics](https://doi.org/10.1101/2025.06.04.657781).*
 bioRxiv.
+
+## Development API inspection
+
+These notebooks target Mantpy 1.1.0 and checksum-pinned companions at the
+mantpy-api-v1.1.0 repository tag. The automatic Colab path requires both that
+tag and the matching PyPI release; use the local candidate until publication.
+
+For local inspection, install the matching 1.1.0 candidate wheel or package
+checkout with patch and gnn extras, then the study requirements. Setup prefers
+MANTPY_PACKAGE_SOURCE or MANTPY_PACKAGE_WHEEL, and detects an adjacent
+checkout or a single uploaded wheel before selecting the public release.
+
+For Colab inspection before publication, upload the matching notebook, setup
+file, companions and 1.1.0 candidate wheel. Full experiment companions may be
+supplied as mantpy_experiment_companions.zip. Setup verifies all checksums;
+restart when requested. Candidate execution status is recorded in the inspection
+gallery. The complete liver controls and 70-allocation permutation test have
+not been rerun for this migration.

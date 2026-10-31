@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+import mantpy as mt
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
@@ -11,16 +12,12 @@ from .data import COFACTOR, FEAT_COLS, K, KMEANS_BG, MARKERS, PERCENTILE, patch_
 def prepare_fold(images, meta, held_mouse):
     """Scale all ROIs with training bounds; fit background only on training patches."""
     rois = sorted(meta.loc[meta.mouse != held_mouse, "roi"])
-    bounds = np.asarray([
-        np.percentile(np.concatenate([
-            np.arcsinh(images[roi][c].reshape(-1) / COFACTOR) for roi in rois
-        ]).astype(np.float32), PERCENTILE) for c in range(len(MARKERS))
-    ], dtype=np.float32)
-    norm = {
-        roi: np.clip(np.arcsinh(image / COFACTOR) / bounds[:, None, None],
-                     0, 1).astype(np.float32)
-        for roi, image in images.items()
-    }
+    normalizer = mt.pp.ImageNormalizer(
+        method="pooled_arcsinh_percentile", cofactor=COFACTOR,
+        percentile=PERCENTILE, channel_names=MARKERS,
+    ).fit({roi: images[roi] for roi in rois})
+    bounds = normalizer.bounds_
+    norm = normalizer.transform_cohort(images)
     nodes = patch_features(norm, meta)
     train = (nodes.mouse != held_mouse).to_numpy()
     features = nodes[FEAT_COLS].to_numpy(np.float32)

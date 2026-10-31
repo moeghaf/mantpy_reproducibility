@@ -29,12 +29,18 @@ KO_MICE, WT_MICE = ["mouse_01", "mouse_02"], ["mouse_03", "mouse_04"]
 
 # ---------------------------------------------------------------- composition and marker profiles
 def mouse_fractions(nodes: pd.DataFrame) -> pd.DataFrame:
-    """Rows = mice (with group); columns 0..K-1 = fraction of the mouse's ECM patches in each cluster."""
-    sig = nodes[nodes.cluster >= 0]
-    cnt = sig.groupby(["mouse", "cluster"]).size().unstack(fill_value=0).reindex(columns=range(K), fill_value=0)
-    frac = cnt.div(cnt.sum(1), axis=0)
-    frac.insert(0, "group", sig.groupby("mouse").group.first().reindex(frac.index))
-    return frac
+    """Pool patch counts within mice, then obtain fractions through Mantpy."""
+    cohort = {roi: anndata.AnnData(obs=sub[["cluster"]].copy())
+              for roi, sub in nodes.groupby("roi", sort=True)}
+    meta = nodes.groupby("roi")[["mouse", "group"]].first()
+    result = mt.tl.compute_cluster_composition(
+        cohort, sample_meta=meta, cluster_col="cluster", label_source="obs",
+        categories=range(K), drop_background=True, unit_col="mouse",
+        unit_aggregation="pool_counts", return_details=True,
+    )
+    fractions = result.per_unit.sort_index().copy()
+    fractions.insert(0, "group", result.unit_meta["group"].reindex(fractions.index))
+    return fractions
 
 
 def composition_per_mouse(nodes: pd.DataFrame) -> pd.DataFrame:
@@ -125,55 +131,63 @@ def mantpy_score(adatas: list, O: np.ndarray, n: np.ndarray):
     return F, E, difference
 
 
-def cooccurrence(nodes: pd.DataFrame, edge_method: str = "delaunay", grid_connectivity: int = 8, infection_cluster_id: int = 5,
-                 graphs: dict | None = None) -> dict:
-    """Co-occurrence per ROI, per infected mouse and the KO - WT contrasts. `graphs` (optional) caches the Mantpy graphs by ROI."""
-    rois = sorted(nodes.roi.unique())
+def cooccurrence(nodes: pd.DataFrame, edge_method="delaunay", grid_connectivity=8,
+                 infection_cluster_id=5, graphs=None) -> dict:
+    """Public unit-aware co-occurrence, with independent paper counting checks."""
     meta = nodes.groupby("roi")[["mouse", "group"]].first()
-    roi_O, roi_n, roi_ad, inv, per_roi, validation = {}, {}, {}, [], [], []
-    for roi in rois:
-        sub = nodes[nodes.roi == roi].reset_index(drop=True)
-        ad = graphs[roi] if graphs is not None and roi in graphs else roi_graph(sub, edge_method, grid_connectivity)
-        if graphs is not None:
-            graphs[roi] = ad
-        roi_ad[roi] = ad
-        e = edge_array(ad)
-        cl = sub.cluster.to_numpy()
-        roi_O[roi], roi_n[roi] = ordered_counts(e, cl)
-        ss = (cl[e[:, 0]] >= 0) & (cl[e[:, 1]] >= 0)
-        inv.append(dict(roi=roi, mouse=meta.loc[roi, "mouse"], group=meta.loc[roi, "group"], n_nodes=len(sub), n_signal=int((cl >= 0).sum()),
-                        n_edges_undirected=len(e), n_edges_signal_signal=int(ss.sum())))
-        F, E, difference = mantpy_score([ad], roi_O[roi], roi_n[roi])
-        validation.append(dict(level="ROI", unit=roi, max_abs_difference=difference,
-                               estimable_cells=int((E > 0).sum()), absent_cells=int((E == 0).sum())))
+    roi_ad = {roi: graphs[roi] if graphs is not None and roi in graphs else
+              roi_graph(nodes[nodes.roi == roi].reset_index(drop=True), edge_method, grid_connectivity)
+              for roi in sorted(meta.index)}
+    if graphs is not None:
+        graphs.update(roi_ad)
+    details = mt.tl.cluster_cooccurrence(
+        roi_ad, n_clusters=K, sample_meta=meta, unit_col="mouse",
+        unit_aggregation="pool_counts", return_details=True, missing="nan", eps=1e-9,
+    )
+    inventory, per_roi, validation = [], [], []
+    for roi, adata in roi_ad.items():
+        labels = nodes.loc[nodes.roi == roi, "cluster"].to_numpy()
+        edges = edge_array(adata)
+        observed, abundances = ordered_counts(edges, labels)  # independent study oracle
+        _, _, delta = mantpy_score([adata], observed, abundances)
+        result = details.per_sample[roi]
+        inventory.append(dict(roi=roi, mouse=meta.loc[roi, "mouse"], group=meta.loc[roi, "group"],
+                              n_nodes=len(labels), n_signal=int((labels >= 0).sum()),
+                              n_edges_undirected=len(edges),
+                              n_edges_signal_signal=int(((labels[edges[:, 0]] >= 0) & (labels[edges[:, 1]] >= 0)).sum())))
+        validation.append(dict(level="ROI", unit=roi, max_abs_difference=delta,
+                               estimable_cells=int((result.expected > 0).sum()), absent_cells=int((result.expected == 0).sum())))
         for a in range(K):
             for b in range(K):
-                per_roi.append(dict(roi=roi, mouse=meta.loc[roi, "mouse"], group=meta.loc[roi, "group"], cluster_a=a, cluster_b=b,
-                                    O=roi_O[roi][a, b], E=E[a, b], F=F[a, b]))
-    inf_mice = KO_MICE + WT_MICE
-    mO = {m: sum(roi_O[r] for r in rois if meta.loc[r, "mouse"] == m) for m in inf_mice}
-    mn = {m: sum(roi_n[r] for r in rois if meta.loc[r, "mouse"] == m) for m in inf_mice}
-    mF = {}
-    for m in inf_mice:
-        mF[m], E, difference = mantpy_score([roi_ad[r] for r in rois if meta.loc[r, "mouse"] == m], mO[m], mn[m])
-        validation.append(dict(level="mouse", unit=m, max_abs_difference=difference,
-                               estimable_cells=int((E > 0).sum()), absent_cells=int((E == 0).sum())))
-    pool = {}
-    for g, ms in (("KO", KO_MICE), ("WT", WT_MICE)):
-        ads = [roi_ad[r] for r in rois if meta.loc[r, "mouse"] in ms]
-        pool[g], E, difference = mantpy_score(ads, sum(mO[m] for m in ms), sum(mn[m] for m in ms))
-        validation.append(dict(level="genotype pool", unit=g, max_abs_difference=difference,
-                               estimable_cells=int((E > 0).sum()), absent_cells=int((E == 0).sum())))
-    pairs = []
-    for a in range(K):
-        for b in range(a, K):
-            pairs.append(dict(cluster_a=a, cluster_b=b,
-                              delta_equal_mouse=np.mean([mF[m][a, b] for m in KO_MICE]) - np.mean([mF[m][a, b] for m in WT_MICE]),
-                              delta_pooled_tissue=pool["KO"][a, b] - pool["WT"][a, b],
-                              **{f"F_{m}": mF[m][a, b] for m in inf_mice}, **{f"O_{m}": mO[m][a, b] for m in inf_mice},
-                              involves_infection_cluster=bool(infection_cluster_id in (a, b))))
-    return dict(pairs=pd.DataFrame(pairs), per_roi=pd.DataFrame(per_roi), inventory=pd.DataFrame(inv),
-                validation=pd.DataFrame(validation))
+                per_roi.append(dict(roi=roi, mouse=meta.loc[roi, "mouse"], group=meta.loc[roi, "group"],
+                                    cluster_a=a, cluster_b=b, O=result.observed[a, b],
+                                    E=result.expected[a, b], F=result.enrichment[a, b]))
+    mice = KO_MICE + WT_MICE
+    by_mouse = {mouse: details.per_unit[mouse] for mouse in mice}
+    pools = {}
+    for label, chosen in (("KO", KO_MICE), ("WT", WT_MICE)):
+        pools[label] = mt.tl.cluster_cooccurrence(
+            {roi: adata for roi, adata in roi_ad.items() if meta.loc[roi, "mouse"] in chosen},
+            n_clusters=K, return_details=True, missing="nan", eps=1e-9,
+        )
+    for level, units in (("mouse", by_mouse), ("genotype pool", pools)):
+        for unit, result in units.items():
+            independent, expected = score(result.observed, result.node_counts)
+            finite = expected > 0
+            delta = float(np.max(np.abs(result.enrichment[finite] - independent[finite]))) if finite.any() else 0.0
+            if delta > 1e-12:
+                raise AssertionError(f"Mantpy co-occurrence differs from study reference: {delta:g}")
+            validation.append(dict(level=level, unit=unit, max_abs_difference=delta,
+                                   estimable_cells=int(finite.sum()), absent_cells=int((~finite).sum())))
+    rows = [dict(cluster_a=a, cluster_b=b,
+                 delta_equal_mouse=np.mean([by_mouse[m].enrichment[a, b] for m in KO_MICE]) - np.mean([by_mouse[m].enrichment[a, b] for m in WT_MICE]),
+                 delta_pooled_tissue=pools["KO"].enrichment[a, b] - pools["WT"].enrichment[a, b],
+                 **{f"F_{m}": by_mouse[m].enrichment[a, b] for m in mice},
+                 **{f"O_{m}": by_mouse[m].observed[a, b] for m in mice},
+                 involves_infection_cluster=bool(infection_cluster_id in (a, b)))
+            for a in range(K) for b in range(a, K)]
+    return dict(pairs=pd.DataFrame(rows), per_roi=pd.DataFrame(per_roi),
+                inventory=pd.DataFrame(inventory), validation=pd.DataFrame(validation))
 
 
 def pair_matrix(pairs: pd.DataFrame, column: str) -> np.ndarray:
@@ -184,41 +198,44 @@ def pair_matrix(pairs: pd.DataFrame, column: str) -> np.ndarray:
 
 
 # ---------------------------------------------------------------- ECM 5 subgraphs (Mantpy radius reconnection)
-def subgraphs(nodes: pd.DataFrame, graphs: dict, cluster: int = 5, settings=None) -> dict:
-    """Components of `cluster` per ROI for each (radius, min_nodes) setting, from Mantpy's radius reconnection.
-
-    Returns {"table": subgraphs at 40 px / >= 5 patches, "sensitivity": per-mouse summary over the settings grid,
-             "nodes": node-level membership and degree (40 px) for maps}.
-    """
+def subgraphs(nodes: pd.DataFrame, graphs: dict, cluster=5, settings=None) -> dict:
+    """Radius-40/min-five primary components and the recorded sensitivity grid."""
     settings = settings or SUBGRAPH_GRID
     meta = nodes.groupby("roi")[["mouse", "group"]].first()
-    comps = {}  # (roi, radius) -> list of Mantpy component records
-    for roi in sorted(nodes.roi.unique()):
-        has = bool((nodes[nodes.roi == roi].cluster == cluster).any())
-        for r in sorted({r for r, _ in settings} | {SUBGRAPH_RADIUS}):
-            comps[(roi, r)] = mt.gr.extract_components_radius_reconnect(graphs[roi], target_cluster=cluster, radius=r, min_nodes=1) if has else []
+    results = {radius: mt.tl.component_summary(
+        graphs, target_cluster=cluster, mode="radius", radius=radius, min_nodes=1,
+        sample_meta=meta, unit_col="mouse", unit_aggregation="pool_components",
+    ) for radius in sorted({r for r, _ in settings} | {SUBGRAPH_RADIUS})}
+    primary = results[SUBGRAPH_RADIUS]
     rows, node_rows = [], []
-    for roi in sorted(nodes.roi.unique()):
-        kept = sorted([c for c in comps[(roi, SUBGRAPH_RADIUS)] if c["n_nodes"] >= SUBGRAPH_MIN], key=lambda c: -c["n_nodes"])
-        for k, c in enumerate(kept, start=1):
-            rows.append(dict(roi=roi, mouse=meta.loc[roi, "mouse"], group=meta.loc[roi, "group"], component=k, n_nodes=int(c["n_nodes"]),
-                             n_edges=int(c["n_edges"]), mean_degree=2 * c["n_edges"] / c["n_nodes"]))
-        for j, c in enumerate(comps[(roi, SUBGRAPH_RADIUS)]):
-            # Mantpy numbers the subgraph's nodes by their position among all target-cluster nodes; coords follow sorted(nodes)
-            sub = c["subgraph"]; labels = sorted(sub.nodes)
-            for i, (x, y) in enumerate(np.asarray(c["coords"], float)):
-                node_rows.append(dict(roi=roi, x=float(x), y=float(y), component_index=j, component_size=int(c["n_nodes"]),
-                                      retained=bool(c["n_nodes"] >= SUBGRAPH_MIN), node_degree_40px=int(sub.degree(labels[i]))))
-    sens = []
-    for r, mnod in settings:
-        for mouse, g in meta.groupby("mouse").group.first().items():
-            cc = [c for roi in meta.index[meta.mouse == mouse] for c in comps[(roi, r)] if c["n_nodes"] >= mnod]
-            sens.append(dict(radius_px=r, min_nodes=mnod, mouse=mouse, group=g, n_components=len(cc),
-                             median_n_nodes=float(np.median([c["n_nodes"] for c in cc])) if cc else np.nan,
-                             median_mean_degree=float(np.median([2 * c["n_edges"] / c["n_nodes"] for c in cc])) if cc else np.nan,
-                             total_infection_cluster_nodes_retained=int(sum(c["n_nodes"] for c in cc))))
-    cols = ["roi", "mouse", "group", "component", "n_nodes", "n_edges", "mean_degree"]
-    return dict(table=pd.DataFrame(rows, columns=cols), sensitivity=pd.DataFrame(sens), nodes=pd.DataFrame(node_rows))
+    for roi, records in primary.records.items():
+        kept = sorted((c for c in records if c["n_nodes"] >= SUBGRAPH_MIN), key=lambda c: -c["n_nodes"])
+        for number, record in enumerate(kept, 1):
+            rows.append(dict(roi=roi, mouse=meta.loc[roi, "mouse"], group=meta.loc[roi, "group"],
+                             component=number, n_nodes=record["n_nodes"], n_edges=record["n_edges"],
+                             mean_degree=2 * record["n_edges"] / record["n_nodes"]))
+        for index, record in enumerate(records):
+            subgraph, graph_nodes = record["subgraph"], sorted(record["subgraph"].nodes)
+            for i, (x, y) in enumerate(np.asarray(record["coords"], float)):
+                node_rows.append(dict(roi=roi, x=float(x), y=float(y), component_index=index,
+                                      component_size=record["n_nodes"], retained=record["n_nodes"] >= SUBGRAPH_MIN,
+                                      node_degree_40px=int(subgraph.degree(graph_nodes[i]))))
+    sensitivity = []
+    for radius, minimum in settings:
+        summary = mt.tl.component_summary(
+            graphs, target_cluster=cluster, mode="radius", radius=radius, min_nodes=minimum,
+            sample_meta=meta, unit_col="mouse", unit_aggregation="pool_components",
+        )
+        retained = summary.components.loc[summary.components.kept]
+        for mouse, group in meta.groupby("mouse").group.first().items():
+            unit = summary.per_unit.loc[mouse]
+            total = retained.loc[retained.sample_id.isin(meta.index[meta.mouse == mouse]), "n_nodes"].sum()
+            sensitivity.append(dict(radius_px=radius, min_nodes=minimum, mouse=mouse, group=group,
+                                    n_components=int(unit.n_components), median_n_nodes=unit.median_nodes,
+                                    median_mean_degree=unit.median_mean_degree,
+                                    total_infection_cluster_nodes_retained=int(total)))
+    columns = ["roi", "mouse", "group", "component", "n_nodes", "n_edges", "mean_degree"]
+    return dict(table=pd.DataFrame(rows, columns=columns), sensitivity=pd.DataFrame(sensitivity), nodes=pd.DataFrame(node_rows))
 
 
 # ---------------------------------------------------------------- display composites

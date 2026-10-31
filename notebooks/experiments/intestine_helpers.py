@@ -14,10 +14,11 @@ import shutil
 import tarfile
 import time
 from urllib.request import urlopen
-from unittest.mock import patch
 
+import mantpy as mt
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import ListedColormap, Normalize
 import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
@@ -25,9 +26,6 @@ from sklearn.preprocessing import StandardScaler
 from threadpoolctl import threadpool_limits
 import torch
 from torch import nn
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
-from tqdm.auto import trange
 
 
 HERE = Path(__file__).resolve().parent
@@ -262,74 +260,39 @@ class SelectedCNN(nn.Module):
         return self.lin(self.pool(self.conv(values)).flatten(1))
 
 
-def augment_patches(values):
-    """Default flips/transpose, contrast .7–1.3, brightness ±.1 and noise .05."""
-    for dimensions in ((-1,), (-2,)):
-        selected = torch.rand(len(values), device=values.device) < .5
-        values = torch.where(selected[:, None, None, None], values.flip(dimensions), values)
-    selected = torch.rand(len(values), device=values.device) < .5
-    values = torch.where(selected[:, None, None, None], values.transpose(-1, -2), values)
-    contrast = .7 + .6 * torch.rand(len(values), 1, 1, 1, device=values.device)
-    brightness = -.1 + .2 * torch.rand(len(values), 1, 1, 1, device=values.device)
-    return (values * contrast + brightness + .05 * torch.randn_like(values)).clamp(0, 1)
+def projection_head(latent_dim=96, projection_dim=64):
+    """Paper projection layers, initialized after the selected backbone."""
+    return nn.Sequential(nn.Linear(latent_dim, latent_dim), nn.ReLU(),
+                         nn.Linear(latent_dim, projection_dim))
 
 
-def fit_selected_cnn(windows, architecture, fixed, seed, device="cuda", progress=True):
-    """Train the frozen contrastive recipe with public PyTorch, without searches."""
-    seed_everything(seed, threads=2)
-    data = torch.from_numpy(np.ascontiguousarray(windows, dtype=np.float32))
-    batch_size = min(int(fixed["batch"]), len(data))
-    loader = DataLoader(
-        data, batch_size=batch_size, shuffle=True, num_workers=0,
-        generator=torch.Generator().manual_seed(seed),
-        drop_last=len(data) % batch_size == 1,
-        pin_memory=device.startswith("cuda"),
-    )
-    latent, projection = int(fixed["latent"]), int(fixed["projection"])
-    # The original parameterised wrapper initialised a default encoder/head
-    # before replacing them. Preserve those RNG draws with public modules.
-    placeholder = SelectedCNN(in_channels=data.shape[1], latent_dim=latent)
-    placeholder_head = nn.Sequential(nn.Linear(latent, latent), nn.ReLU(), nn.Linear(latent, 64))
+def selected_backbone(in_channels, architecture, latent_dim=96):
+    """Preserve the original replaced default encoder/head initialization draws."""
+    placeholder = SelectedCNN(in_channels=in_channels, latent_dim=latent_dim)
+    placeholder_head = projection_head(latent_dim, 64)
     del placeholder, placeholder_head
-    cnn = SelectedCNN(**architecture, latent_dim=latent, in_channels=data.shape[1]).to(device)
-    head = nn.Sequential(nn.Linear(latent, latent), nn.ReLU(), nn.Linear(latent, projection)).to(device)
-    optimizer = torch.optim.AdamW(
-        list(cnn.parameters()) + list(head.parameters()),
-        lr=fixed["lr"], weight_decay=fixed["weight_decay"],
-    )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=fixed["epochs"])
-    losses, updates = [], 0
-    for epoch in trange(fixed["epochs"], desc=f"CNN seed {seed}", disable=not progress):
-        cnn.train()
-        head.train()
-        batch_losses = []
-        for batch in loader:
-            batch = batch.to(device, non_blocking=True)
-            views = torch.cat([augment_patches(batch), augment_patches(batch)])
-            z = F.normalize(head(cnn(views)), dim=1)
-            similarity = z @ z.T / fixed["temperature"]
-            similarity.fill_diagonal_(-1e9)
-            targets = (torch.arange(len(z), device=device) + len(batch)) % len(z)
-            loss = F.cross_entropy(similarity, targets)
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            optimizer.step()
-            updates += 1
-            batch_losses.append(float(loss.detach().cpu()))
-        scheduler.step()
-        losses.append(float(np.mean(batch_losses)))
-    cnn.eval()
-    with torch.no_grad():
-        raw = np.concatenate([
-            cnn(batch.to(device)).cpu().numpy()
-            for batch in DataLoader(data, batch_size=4096, shuffle=False)
-        ])
-    scaler = StandardScaler()
-    scaler.partial_fit(raw)
-    features = scaler.transform(raw).astype(np.float32) if fixed["standardize"] else raw.astype(np.float32)
-    if features.shape != (len(windows), latent) or not np.isfinite(losses).all():
-        raise ValueError("Incomplete CNN fit.")
-    return cnn, features, np.asarray(losses), scaler, updates
+    return SelectedCNN(in_channels=in_channels, latent_dim=latent_dim, **architecture)
+
+
+def fit_selected_cnn(windows, architecture, fixed, seed, device="cpu"):
+    """Fit the recorded model through Mantpy; keep study scaling/checkpoints local."""
+    seed_everything(seed, threads=2)
+    encoder = mt.nn.PatchEncoder(
+        latent_dim=fixed["latent"], temperature=fixed["temperature"],
+        backbone=selected_backbone,
+        backbone_kwargs=dict(in_channels=windows.shape[1], architecture=architecture,
+                             latent_dim=fixed["latent"]),
+        projection=projection_head,
+        projection_kwargs=dict(latent_dim=fixed["latent"], projection_dim=fixed["projection"]),
+        augment=fixed["augment"],
+    ).fit(windows, max_epochs=fixed["epochs"], batch_size=fixed["batch"],
+          lr=fixed["lr"], weight_decay=fixed["weight_decay"], random_state=seed,
+          accelerator=device, num_workers=0, drop_last=None, exhaust_sampler=True, deterministic="warn")
+    raw = encoder.transform(windows, batch_size=4096, standardize=False).astype(np.float32)
+    scaler = StandardScaler().fit(raw)
+    features = scaler.transform(raw).astype(np.float32) if fixed["standardize"] else raw
+    return (encoder.model, features, np.asarray(encoder.history["train_loss"]),
+            scaler, encoder.optimizer_updates)
 
 
 def build_selected_graph(patches, neighbours, continuity=.25, control=None, seed=0):
@@ -337,19 +300,13 @@ def build_selected_graph(patches, neighbours, continuity=.25, control=None, seed
     import mantpy as mt
     mt.gr.build_patch_graph(
         patches, k=neighbours, continuity_thresh=continuity, continuity_samples=6,
-        edge_features=("log_distance", "sin_angle2", "cos_angle2"),
-        standardize_edges=False, key_added="patch",
+        edge_features=("log_euclidean_distance", "sin_angle2", "cos_angle2"),
+        standardize_edges=True, edge_feature_precision="float64",
+        standardization_scope="directed", standardization_eps=0, key_added="patch",
     )
     graph = patches.uns["patch"]
     edges = np.asarray(graph["edge_index"], dtype=np.int64).copy()
-    xy = np.asarray(patches.obsm["spatial"], dtype=np.float64)
-    delta = xy[edges[1]] - xy[edges[0]]
-    distance = np.maximum(np.linalg.norm(delta, axis=1), 1e-9)
-    angle = np.arctan2(delta[:, 1], delta[:, 0])
-    attributes = np.column_stack([np.log(distance), np.sin(2 * angle), np.cos(2 * angle)])
-    deviation = attributes.std(0)
-    deviation[deviation == 0] = 1
-    attributes = ((attributes - attributes.mean(0)) / deviation).astype(np.float32)
+    attributes = np.asarray(graph["edge_attr"], dtype=np.float32).copy()
     if control == "shuffled_edges":
         permutation = np.random.default_rng(10_000 + seed).permutation(edges.shape[1])
         edges = np.stack([edges[0], edges[1, permutation]])
@@ -366,34 +323,7 @@ def build_selected_graph(patches, neighbours, continuity=.25, control=None, seed
     return int(edges.shape[1])
 
 
-@contextmanager
-def observe_graphmae_training(epochs):
-    """Observe the original backward scalars and AdamW steps without altering either."""
-    updates, losses = [], []
-    original_step = torch.optim.AdamW.step
-    original_backward = torch.Tensor.backward
 
-    def measured_step(optimizer, *args, **kwargs):
-        value = original_step(optimizer, *args, **kwargs)
-        updates.append(1)
-        return value
-
-    def measured_backward(loss, *args, **kwargs):
-        scalar = float(loss.detach().cpu())
-        if not np.isfinite(scalar):
-            raise ValueError("GraphMAE produced a nonfinite reconstruction loss.")
-        losses.append(scalar)
-        return original_backward(loss, *args, **kwargs)
-
-    with patch.object(torch.optim.AdamW, "step", measured_step), patch.object(
-        torch.Tensor, "backward", measured_backward,
-    ):
-        yield {"losses": losses, "updates": updates}
-    if len(losses) != epochs or len(updates) != epochs:
-        raise RuntimeError(
-            f"Incomplete GraphMAE fit: {len(losses)} losses and "
-            f"{len(updates)} updates; expected {epochs} of each."
-        )
 
 
 def release_cuda():
@@ -493,15 +423,13 @@ class PixelScorer:
 
 
 def plot_patch_labels(patches, labels, title, k, save=None):
-    shape = tuple(patches.uns["image_ecm_patches"]["patch_grid_shape"])
-    grid = np.full(shape, np.nan)
-    grid[patches.obs["grid_y"].to_numpy(int), patches.obs["grid_x"].to_numpy(int)] = labels
     figure, axis = plt.subplots(figsize=(6, 5))
-    cmap = ListedColormap(plt.get_cmap("tab10").colors[:k])
-    artist = axis.imshow(grid, cmap=cmap, vmin=-.5, vmax=k - .5, interpolation="nearest")
-    axis.set(title=title)
+    mt.pl.patch_map(patches, labels, ax=axis, title=title, categorical=True,
+                    palette=dict(enumerate(plt.get_cmap("tab10").colors[:k])),
+                    vmin=-.5, vmax=k-.5, crop=False, background="white")
     axis.set_axis_off()
-    figure.colorbar(artist, ax=axis, ticks=range(k), label="Cluster", shrink=.75)
+    scalar = ScalarMappable(norm=Normalize(-.5, k-.5), cmap=ListedColormap(plt.get_cmap("tab10").colors[:k]))
+    figure.colorbar(scalar, ax=axis, ticks=range(k), label="Cluster", shrink=.75)
     figure.tight_layout()
     if save:
         figure.savefig(save, dpi=160)

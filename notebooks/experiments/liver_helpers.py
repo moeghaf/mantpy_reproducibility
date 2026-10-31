@@ -1,7 +1,7 @@
 """Selected liver models, fold checkpoints and compact display helpers.
 
-Mantpy supplies patches, graphs and co-occurrence. Public PyTorch/PyG express
-the selected encoder, ROI-mean loss and archived nested model architectures.
+Mantpy supplies fitting, attribution, graph calculations and display. Local
+model factories preserve selected and archived nested architectures.
 """
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ import time
 import anndata as ad
 import mantpy as mt
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import ListedColormap, Normalize
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -223,31 +224,10 @@ class SelectedGNN(nn.Module):
         return self.head(h)
 
 
-def class_weights(labels):
-    counts = np.bincount(np.asarray(labels, int), minlength=2).astype(float)
-    if not (counts > 0).all():
-        raise ValueError("Both classes must be present in training.")
-    w = torch.tensor(counts.sum() / (counts + 1e-6), dtype=torch.float32)
-    return w / w.sum() * 2
 
 
-def reduced_loss(logits, targets, weights, batch, graph_targets, objective,
-                 label_smoothing=0.0):
-    """Class weights multiply each ROI mean, or weight the pooled patch loss."""
-    if objective == "patch_sum":
-        return F.cross_entropy(logits, targets, weight=weights,
-                               label_smoothing=label_smoothing)
-    if objective != "roi_mean":
-        raise ValueError(objective)
-    per_node = F.cross_entropy(logits, targets, reduction="none",
-                               label_smoothing=label_smoothing)
-    total = torch.zeros(len(graph_targets), device=logits.device)
-    total.index_add_(0, batch.batch, per_node)
-    counts = (batch.ptr[1:] - batch.ptr[:-1]).to(total.dtype)
-    per_roi = total / counts
-    if weights is not None:
-        per_roi = weights[graph_targets] * per_roi
-    return per_roi.mean()
+
+
 
 
 def fit_gnn_cached(graphs, meta, *, held_mouse, seed, config, objective,
@@ -279,43 +259,20 @@ def fit_gnn_cached(graphs, meta, *, held_mouse, seed, config, objective,
             return {"model": model, "mean": state["mean"], "scale": state["scale"],
                     "checkpoint": saved, "folder": folder, "test": test}
     t0 = time.perf_counter()
-    # Same per-fit RNG initialisation as the fixed-model execution protocol.
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    x_all = torch.cat([graphs[i].x for i in train]).numpy()
-    mean, scale = x_all.mean(0), x_all.std(0)
-    scale[scale == 0] = 1.0
-    mean, scale = torch.tensor(mean), torch.tensor(scale)
-    model = SelectedGNN(config)
-    optimizer_type = torch.optim.AdamW if config.get("optimizer") == "adamw" else torch.optim.Adam
-    optimizer = optimizer_type(model.parameters(), lr=config["lr"],
-                               weight_decay=config["weight_decay"])
-    scheduler = (torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["epochs"])
-                 if config.get("lr_schedule") == "cosine" else None)
-    batch = Batch.from_data_list([graphs[i] for i in train])
-    x = (batch.x - mean) / scale
-    graph_targets = torch.tensor(labels[train], dtype=torch.long)
-    targets = graph_targets[batch.batch]
-    weights = class_weights(labels[train]) if config.get("class_weight", True) else None
-    losses = []
-    model.train()
-    for epoch in range(config["epochs"]):
-        optimizer.zero_grad(set_to_none=True)
-        x_in = x
-        dropout = config.get("input_dropout", 0.0)
-        if dropout:
-            keep = (torch.rand(len(x), 1) >= dropout).to(x.dtype)
-            x_in = x * keep / (1 - dropout)
-        loss = reduced_loss(model(x_in, batch.edge_index), targets, weights, batch,
-                            graph_targets, objective, config.get("label_smoothing", 0.0))
-        if not torch.isfinite(loss):
-            raise FloatingPointError(f"Non-finite loss: {held_mouse}, seed {seed}, epoch {epoch}.")
-        loss.backward()
-        optimizer.step()
-        if scheduler is not None:
-            scheduler.step()
-        losses.append(float(loss.detach()))
-    model.eval()
+    trained = mt.nn.train_node_classifier(
+        [graphs[i] for i in train], labels[train], model_factory=SelectedGNN,
+        model_kwargs={"config": config}, n_classes=2,
+        epochs=config["epochs"], lr=config["lr"], weight_decay=config["weight_decay"],
+        seed=seed, loss_reduction="roi" if objective == "roi_mean" else "node",
+        roi_class_weight_mode="after",
+        class_weight="balanced" if config.get("class_weight", True) else None,
+        optimizer_factory=torch.optim.AdamW if config.get("optimizer") == "adamw" else torch.optim.Adam,
+        scheduler="cosine" if config.get("lr_schedule") == "cosine" else None,
+        input_dropout=config.get("input_dropout", 0.0),
+        label_smoothing=config.get("label_smoothing", 0.0), standardize=True, device="cpu",
+    )
+    model, mean, scale = trained.model, trained.mean, trained.scale
+    weights, losses = trained.class_weights, trained.history["train_loss"]
     temporary = state_path.with_suffix(".pt.tmp")
     torch.save({"model": model.state_dict(), "mean": mean, "scale": scale}, temporary)
     os.replace(temporary, state_path)
@@ -335,14 +292,16 @@ def fit_gnn_cached(graphs, meta, *, held_mouse, seed, config, objective,
 
 
 def graph_probability(fit, graph):
-    with torch.no_grad():
-        logits = fit["model"]((graph.x - fit["mean"]) / fit["scale"], graph.edge_index)
-        return float(logits.softmax(1).numpy().mean(0)[1])
+    trained = mt.nn.GraphClassifierFit(
+        model=fit["model"], mean=fit["mean"], scale=fit["scale"],
+        history={}, class_weights=None, optimizer_updates=0,
+        loss_reduction=fit["checkpoint"]["objective"], seed=fit["checkpoint"]["seed"],
+    )
+    return float(trained.predict_proba(graph).mean(0)[1])
 
 
 def integrated_gradients_cached(fit, graph, *, steps=50):
     """Per-seed signed IG; ensemble importance is |mean signed IG|, not mean |IG|."""
-    from captum.attr import IntegratedGradients
     path = fit["folder"] / f"ig_{graph.roi_id}_{steps}.npz"
     stamp = identity("ig", fit=fit["checkpoint"]["identity"], roi=str(graph.roi_id),
                      x=array_hash(graph.x.numpy()), edges=array_hash(graph.edge_index.numpy()),
@@ -353,17 +312,12 @@ def integrated_gradients_cached(fit, graph, *, steps=50):
         if record["identity"] == stamp and record["sha256"] == file_hash(path):
             with np.load(path) as z:
                 return z["signed"], float(z["delta"])
-    model = fit["model"]
-    model.eval()
-    x = ((graph.x - fit["mean"]) / fit["scale"]).detach()
-    def forward(items):
-        return torch.stack([model(item, graph.edge_index)[:, 1].mean() for item in items])
     t0 = time.perf_counter()
-    signed, delta = IntegratedGradients(forward).attribute(
-        x.unsqueeze(0), baselines=torch.zeros_like(x).unsqueeze(0), n_steps=steps,
-        internal_batch_size=1, return_convergence_delta=True)
-    signed = signed.squeeze(0).detach().numpy()
-    delta = float(delta.item())
+    attribution = mt.nn.node_integrated_gradients(
+        fit["model"], graph, mean=fit["mean"], scale=fit["scale"], target_class=1,
+        n_steps=steps, internal_batch_size=1, return_details=True,
+    )
+    signed, delta = attribution.signed, float(attribution.convergence_delta.item())
     np.savez_compressed(path, signed=signed, delta=delta)
     write_json(meta_path, {"identity": stamp, "sha256": file_hash(path),
                           "seconds": time.perf_counter() - t0})
@@ -527,10 +481,11 @@ def show_patch_map(nodes, roi, title=None, outline=None):
     grid = np.full((int(sub.gy.max()) + 1, int(sub.gx.max()) + 1), np.nan)
     keep = sub.cluster.to_numpy(int) >= 0
     grid[sub.gy.to_numpy(int)[keep], sub.gx.to_numpy(int)[keep]] = sub.cluster.to_numpy(int)[keep]
-    cmap = ListedColormap(plt.get_cmap("tab10").colors[:6])
-    cmap.set_bad("white")
     fig, ax = plt.subplots(figsize=(6, 6))
-    im = ax.imshow(grid, cmap=cmap, vmin=-0.5, vmax=5.5, interpolation="nearest")
+    mt.pl.patch_map(sub.rename(columns={"gx": "grid_x", "gy": "grid_y"}), "cluster",
+                    patch_size=10, ax=ax, categorical=True, background="white",
+                    palette=dict(enumerate(plt.get_cmap("tab10").colors[:6])), vmin=-0.5, vmax=5.5)
+    im = ScalarMappable(norm=Normalize(-.5, 5.5), cmap=ListedColormap(plt.get_cmap("tab10").colors[:6]))
     if outline is not None:
         ax.contour(np.nan_to_num(grid, nan=-1) == outline, levels=[0.5],
                    colors="black", linewidths=0.6)
@@ -549,7 +504,10 @@ def show_ig(attribution, roi, infection_cluster):
     grid[gy, gx] = sub.ig_infected
     cluster[gy, gx] = sub.cluster == infection_cluster
     fig, ax = plt.subplots(figsize=(6, 6))
-    im = ax.imshow(grid, cmap="magma", vmin=0, vmax=np.percentile(sub.ig_infected, 99))
+    mt.pl.patch_map(sub, "ig_infected", patch_size=10, ax=ax, categorical=False,
+                    background="white", cmap="magma", vmin=0,
+                    vmax=np.percentile(sub.ig_infected, 99))
+    im = ScalarMappable(norm=Normalize(0, np.percentile(sub.ig_infected, 99)), cmap="magma")
     if cluster.any() and not cluster.all():
         ax.contour(cluster, levels=[0.5], colors="#00BFC4", linewidths=0.6)
     ax.set_title(f"{roi} · ensemble |IG| towards infected")

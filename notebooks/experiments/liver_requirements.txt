@@ -1,5 +1,5 @@
 # Python 3.11, 3.12 or 3.13. Install a suitable PyTorch build for your local GPU.
-mantpy[patch,gnn]==1.0.2
+mantpy[patch,gnn]==1.1.0
 anndata==0.12.3
 numpy==2.2.6
 pandas==2.2.3

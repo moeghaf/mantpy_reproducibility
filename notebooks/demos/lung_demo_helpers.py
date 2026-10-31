@@ -1,7 +1,7 @@
 """Small plotting and cell-context helpers for the mouse-lung tutorial."""
+import mantpy as mt
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 from scipy.spatial import cKDTree
 from sklearn.metrics import roc_auc_score
@@ -17,20 +17,14 @@ def patch_grid(patches, values, patch_size=10):
 
 
 def plot_patch_map(patches, title, *, labels=None, palette=None, patch_size=10):
-    """One categorical patch map; background is white."""
     labels = patches["ecm_cluster"].to_numpy(int) if labels is None else np.asarray(labels)
-    values = labels.astype(float)
-    values[labels < 0] = np.nan
     colours = [palette[k] for k in range(3)] if palette else ["#56B4E9", "#D55E00", "#009E73"]
-    cmap = ListedColormap(colours)
-    cmap.set_bad("white")
-    grid = patch_grid(patches, values, patch_size)
+    shape = patch_grid(patches, labels, patch_size).shape
     _, ax = plt.subplots(figsize=(6.5, 6.5))
-    ax.imshow(grid, cmap=cmap, vmin=-0.5, vmax=2.5, interpolation="nearest",
-              extent=(0, grid.shape[1] * patch_size, grid.shape[0] * patch_size, 0))
-    ax.set_title(title)
-    ax.set_xlabel("x (µm)")
-    ax.set_ylabel("y (µm)")
+    mt.pl.patch_map(patches, labels, patch_size=patch_size, ax=ax, title=title,
+                    categorical=True, palette=dict(enumerate(colours)), vmin=-.5, vmax=2.5,
+                    extent=(0, shape[1]*patch_size, shape[0]*patch_size, 0), background="white")
+    ax.set(xlabel="x (µm)", ylabel="y (µm)")
     ax.legend([Patch(facecolor=c) for c in colours], ["ECM 0", "ECM 1", "ECM 2"],
               loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=3, frameon=False)
     plt.tight_layout()
@@ -52,35 +46,38 @@ def cell_ecm_edges(cells):
 
 def aec_contact_mask(cells):
     """Each patch is counted once even if it has multiple AEC edges."""
-    patches = cells.uns["ecm_patches"]
-    linked = np.zeros(len(patches), dtype=bool)
+    import scipy.sparse as sp
     edges = cell_ecm_edges(cells)
-    cell_type = cells.obs["cell_type"].astype(str).to_numpy()
-    keep = cell_type[edges[:, 0].astype(int)] == "AEC"
-    linked[edges[keep, 1].astype(int)] = True
-    return linked
+    patches = cells.uns["ecm_patches"]
+    adjacency = sp.coo_matrix(
+        (np.ones(len(edges)), (edges[:, 0].astype(int), edges[:, 1].astype(int))),
+        shape=(cells.n_obs, len(patches)),
+    ).tocsr()
+    columns = [column for column in patches if column.startswith("feat_")]
+    return mt.tl.contact_marker_contrast(
+        adjacency, patches[columns], cell_labels=cells.obs["cell_type"].astype(str).to_numpy(),
+        cell_type="AEC", weighting="unique_patch", accumulation_dtype="input",
+    ).contact_mask.to_numpy()
 
 
 def cell_context_features(cells, cell_types, *, edge_weight="gaussian_median"):
-    """Weighted cell-type counts around patches; no ECM label is an input."""
+    """Original weighted cell context through the public label aggregation API."""
+    import scipy.sparse as sp
     edges = cell_ecm_edges(cells)
-    features = np.zeros((len(cells.uns["ecm_patches"]), len(cell_types)), dtype=float)
-    if not len(edges):
-        return features
-    cell_index, patch_index = edges[:, 0].astype(int), edges[:, 1].astype(int)
     distance = edges[:, 2]
     if edge_weight == "gaussian_median":
-        sigma = max(float(np.median(distance)), 1e-12)
+        sigma = max(float(np.median(distance)), 1e-12) if len(distance) else 1e-12
         weights = np.exp(-(distance ** 2) / (2 * sigma ** 2))
     elif edge_weight == "none":
-        weights = np.ones(len(edges))
+        weights = np.ones(len(distance))
     else:
         raise ValueError(f"Unsupported edge weight: {edge_weight}")
-    lookup = {name: i for i, name in enumerate(cell_types)}
-    cell_labels = cells.obs["cell_type"].astype(str).to_numpy()
-    type_index = np.asarray([lookup[cell_labels[i]] for i in cell_index])
-    np.add.at(features, (patch_index, type_index), weights)
-    return features
+    adjacency = sp.coo_matrix((weights, (edges[:, 1].astype(int), edges[:, 0].astype(int))),
+                              shape=(len(cells.uns["ecm_patches"]), cells.n_obs)).tocsr()
+    return mt.tl.neighbourhood_features(
+        adjacency, cells.obs["cell_type"].astype(str).to_numpy(), categories=cell_types,
+        normalization="counts", exclude_self=False,
+    ).to_numpy()
 
 
 def mixed_corruption(xy, pristine, *, seed=0, fraction=0.1, block_sides=(50, 100, 150),

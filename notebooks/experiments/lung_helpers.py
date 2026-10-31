@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 import joblib
+import mantpy as mt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -388,62 +389,52 @@ def summarise_class_recovery(classes):
 
 
 def descriptive_association(cohort, graph_cache, recipe):
-    """Observed/expected cell–ECM edge counts, pooled after computing expected per ROI."""
-    T, K = len(cohort.cell_types), cohort.n_labels
-    observed, expected = np.zeros((T, K)), np.zeros((T, K))
-    per_roi = []
-    for name, roi in cohort.rois.items():
-        edge = graph_cache.get(roi, recipe).ce_d.tocoo()
-        cluster = roi.label[edge.col]
-        keep = cluster >= 0
-        cell, cluster = edge.row[keep], cluster[keep]
-        obs = np.bincount(
-            roi.cell_type_idx[cell] * K + cluster, minlength=T * K,
-        ).reshape(T, K)
-        exp = obs.sum(1)[:, None] * obs.sum(0)[None, :] / max(obs.sum(), 1)
-        observed += obs
-        expected += exp
-        for t, cell_type in enumerate(cohort.cell_types):
-            for k in range(K):
-                per_roi.append({
-                    "roi": name, "mouse": roi.mouse, "cell_type": cell_type,
-                    "cluster": k, "n_obs": obs[t, k], "n_exp": exp[t, k],
-                    "log2_enr": float(np.log2(obs[t, k] / exp[t, k]))
-                    if obs[t, k] > 0 and exp[t, k] > 0 else -np.inf,
-                })
-    rows = []
-    for t, cell_type in enumerate(cohort.cell_types):
-        for k in range(K):
-            rows.append({
-                "cell_type": cell_type, "cluster": k,
-                "n_obs": int(observed[t, k]), "n_exp": expected[t, k],
-                "log2_enr": float(np.log2(observed[t, k] / expected[t, k]))
-                if observed[t, k] > 0 and expected[t, k] > 0 else -np.inf,
-            })
-    return pd.DataFrame(rows), pd.DataFrame(per_roi)
+    """Public per-ROI expected-count pooling with the original zero presentation."""
+    from lung_analysis.graphs import joint_graph
+    carriers = {name: joint_graph(roi, graph_cache.get(roi, recipe))
+                for name, roi in cohort.rois.items()}
+    result = mt.tl.cell_ecm_enrichment_matrix(
+        carriers, K_ecm=cohort.n_labels, cell_types=cohort.cell_types,
+        n_perm=0, eps=0, return_details=True,
+    )
+    pooled, per_roi = result.pooled.copy(), result.per_roi.copy()
+    per_roi = per_roi.rename(columns={"sample_id": "roi"})
+    if "roi" not in per_roi and "sample" in per_roi:
+        per_roi = per_roi.rename(columns={"sample": "roi"})
+    # The paper tables retain every declared category even when it has no edges.
+    pooled = pooled.set_index(["cell_type", "cluster"]).reindex(pd.MultiIndex.from_product(
+        [cohort.cell_types, range(cohort.n_labels)], names=["cell_type", "cluster"],
+    )).reset_index()
+    per_roi = per_roi.set_index(["roi", "cell_type", "cluster"]).reindex(pd.MultiIndex.from_product(
+        [cohort.rois, cohort.cell_types, range(cohort.n_labels)], names=["roi", "cell_type", "cluster"],
+    )).reset_index()
+    for table in (pooled, per_roi):
+        table[["n_obs", "n_exp"]] = table[["n_obs", "n_exp"]].fillna(0)
+    per_roi["mouse"] = per_roi["roi"].map({name: roi.mouse for name, roi in cohort.rois.items()})
+    for table in (pooled, per_roi):
+        table.loc[(table.n_obs <= 0) | (table.n_exp <= 0), "log2_enr"] = -np.inf
+    pooled = pooled[["cell_type", "cluster", "n_obs", "n_exp", "log2_enr"]]
+    per_roi = per_roi[["roi", "mouse", "cell_type", "cluster", "n_obs", "n_exp", "log2_enr"]]
+    return pooled, per_roi
 
 
 def aec_contacts(cohort, cache, recipe):
-    contacts = {}
-    for name, roi in cohort.rois.items():
-        ce = cache.get(roi, recipe).ce_d.tocoo()
-        hit = np.zeros(len(roi.label), bool)
-        hit[ce.col[roi.cell_type[ce.row] == "AEC"]] = True
-        contacts[name] = hit
-    return contacts
+    return {name: mt.tl.contact_marker_contrast(
+        cache.get(roi, recipe).ce_w, roi.patch_feat,
+        cell_labels=roi.cell_type, cell_type="AEC", patch_ids=roi.patch_id,
+        weighting="unique_patch", accumulation_dtype="input",
+    ).contact_mask.to_numpy() for name, roi in cohort.rois.items()}
 
 
 def marker_contrasts(cohort, contacts, wall_cluster=1):
-    rows = {}
-    for name, roi in cohort.rois.items():
-        wall = roi.label == wall_cluster
-        rows[name] = (
-            roi.patch_feat[wall & contacts[name]].mean(axis=0)
-            - roi.patch_feat[wall & ~contacts[name]].mean(axis=0)
-        )
-    return pd.DataFrame.from_dict(
-        rows, orient="index", columns=cohort.meta["ecm_names"],
-    ).rename_axis("roi")
+    """Use the supplied unique-patch contacts and input-dtype mean convention."""
+    import scipy.sparse as sp
+    rows = {name: mt.tl.contact_marker_contrast(
+        sp.csr_matrix(contacts[name].astype(float)[None, :]), roi.patch_feat,
+        patch_labels=roi.label, cluster=wall_cluster, patch_ids=roi.patch_id,
+        weighting="unique_patch", accumulation_dtype="input",
+    ).contrast.to_numpy() for name, roi in cohort.rois.items()}
+    return pd.DataFrame.from_dict(rows, orient="index", columns=cohort.meta["ecm_names"]).rename_axis("roi")
 
 
 def graph_sensitivity(cohort, selections, output_dir):
@@ -465,16 +456,14 @@ def graph_sensitivity(cohort, selections, output_dir):
 
 
 def plot_map(roi, labels, title, palette):
-    xy, ps = roi.patch_xy, roi.patch_size
-    x, y = np.floor(xy[:, 0] / ps).astype(int), np.floor(xy[:, 1] / ps).astype(int)
-    grid = np.full((y.max() + 1, x.max() + 1), np.nan)
-    grid[y, x] = np.where(labels >= 0, labels, np.nan)
-    cmap = ListedColormap([palette[k] for k in range(3)])
-    cmap.set_bad("white")
+    table = pd.DataFrame({"grid_y": roi.patch_grid[:, 0], "grid_x": roi.patch_grid[:, 1]},
+                         index=roi.patch_id.astype(str))
+    shape = (int(table.grid_y.max())+1, int(table.grid_x.max())+1)
     _, ax = plt.subplots(figsize=(6, 6))
-    ax.imshow(grid, cmap=cmap, vmin=-0.5, vmax=2.5, interpolation="nearest",
-              extent=(0, grid.shape[1] * ps, grid.shape[0] * ps, 0))
-    ax.set(xlabel="x (µm)", ylabel="y (µm)", title=title)
+    mt.pl.patch_map(table, labels, patch_size=roi.patch_size, ax=ax, title=title,
+                    categorical=True, palette=palette, vmin=-.5, vmax=2.5,
+                    extent=(0, shape[1]*roi.patch_size, shape[0]*roi.patch_size, 0), background="white")
+    ax.set(xlabel="x (µm)", ylabel="y (µm)")
     plt.tight_layout()
     plt.show()
 

@@ -1,5 +1,5 @@
 # Python 3.11, 3.12 or 3.13. Install once, then restart the notebook kernel.
-mantpy==1.0.2
+mantpy==1.1.0
 numpy==2.2.6
 pandas==2.2.3
 scipy==1.16.3

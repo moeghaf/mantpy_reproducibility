@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import os
 
+import mantpy as mt
 import numpy as np
 import pandas as pd
 
 from .data import Cohort
-from .graphs import GraphRecipe, build_graphs
+from .graphs import GraphRecipe, build_graphs, joint_graph
 
 
 def _edge_lists(cohort: Cohort, recipe: GraphRecipe):
@@ -85,19 +86,31 @@ def bh(p: np.ndarray) -> np.ndarray:
     out = np.empty(n); out[order] = np.minimum(q, 1.0); return out
 
 
+def _effect_details(cohort, recipe, cell_type):
+    """Public descriptive edge counting; selected topology stays in the recipe."""
+    carriers, edge_counts = {}, {}
+    for name, roi in cohort.rois.items():
+        graph = build_graphs(roi.cell_xy, roi.patch_xy, roi.patch_grid,
+                             roi.background, roi.patch_size, recipe)
+        carriers[name] = joint_graph(roi, graph)
+        edges = graph.ce_d.tocoo()
+        edge_counts[name] = int((roi.label[edges.col] >= 0).sum())
+    result = mt.tl.cell_ecm_enrichment(
+        carriers, cell_type=cell_type, K_ecm=cohort.n_labels,
+        n_perm=0, eps=0, return_details=True,
+    )
+    return result, edge_counts
+
+
 def per_roi_effects(cohort: Cohort, recipe: GraphRecipe, cell_type: str) -> pd.DataFrame:
-    t = cohort.cell_types.index(cell_type); K = cohort.n_labels
-    rows = []
-    for r in _edge_lists(cohort, recipe):
-        if r["e_clu"].size == 0:
-            continue
-        mask = r["ct"][r["e_cell"]] == t
-        obs = np.bincount(r["e_clu"][mask], minlength=K); freq = np.bincount(r["e_clu"], minlength=K) / r["e_clu"].size
-        exp = mask.sum() * freq
-        for k in range(K):
-            rows.append({"roi": r["roi"], "mouse": cohort.rois[r["roi"]].mouse, "cluster": k, "n_obs": int(obs[k]), "n_exp": float(exp[k]),
-                         "log2_enr": float(np.log2(obs[k] / exp[k])) if obs[k] > 0 and exp[k] > 0 else float("-inf")})
-    return pd.DataFrame(rows)
+    result, edges = _effect_details(cohort, recipe, cell_type)
+    table = result.per_roi.rename(columns={"sample_id": "roi"}).copy()
+    if "sample" in table and "roi" not in table:
+        table = table.rename(columns={"sample": "roi"})
+    table = table[table.roi.map(edges) > 0].copy()
+    table["mouse"] = table.roi.map({name: roi.mouse for name, roi in cohort.rois.items()})
+    table.loc[(table.n_obs <= 0) | (table.n_exp <= 0), "log2_enr"] = -np.inf
+    return table[["roi", "mouse", "cluster", "n_obs", "n_exp", "log2_enr"]]
 
 
 def sensitivity_landscape(cohort: Cohort, space: dict, cell_type: str, n_recipes: int = 48, seed: int = 0) -> pd.DataFrame:
@@ -109,19 +122,15 @@ def sensitivity_landscape(cohort: Cohort, space: dict, cell_type: str, n_recipes
         dm = rng.choice([v for v in G["ce_dmax_px"]]); dm = None if dm is None else float(dm)
         recipes.append(GraphRecipe(ce_rule=str(rule), ce_k=int(rng.integers(G["ce_k"][0], G["ce_k"][1] + 1)), ce_dmax_px=dm,
                                    ee_include_background_nodes=bool(rng.choice(G["ee_include_background_nodes"])), edge_weight="none"))
-    t = cohort.cell_types.index(cell_type); K = cohort.n_labels
     rows = []
     for i, rec in enumerate(recipes):
-        obs = np.zeros(K); exp = np.zeros(K); n_edges = 0
-        for r in _edge_lists(cohort, rec):
-            if r["e_clu"].size == 0:
-                continue
-            mask = r["ct"][r["e_cell"]] == t
-            obs += np.bincount(r["e_clu"][mask], minlength=K); exp += mask.sum() * np.bincount(r["e_clu"], minlength=K) / r["e_clu"].size
-            n_edges += r["e_clu"].size
-        for k in range(K):
-            rows.append({"recipe_index": i, "is_reference": i == 0, **rec.to_dict(), "cluster": k, "n_obs": int(obs[k]), "n_exp": float(exp[k]),
-                         "log2_enr": float(np.log2(obs[k] / exp[k])) if obs[k] > 0 and exp[k] > 0 else float("-inf"), "n_cell_ecm_edges": int(n_edges)})
+        result, edge_counts = _effect_details(cohort, rec, cell_type)
+        for entry in result.pooled.itertuples(index=False):
+            rows.append({"recipe_index": i, "is_reference": i == 0, **rec.to_dict(),
+                         "cluster": int(entry.cluster), "n_obs": int(entry.n_obs),
+                         "n_exp": float(entry.n_exp),
+                         "log2_enr": float(entry.log2_enr) if entry.n_obs > 0 and entry.n_exp > 0 else -np.inf,
+                         "n_cell_ecm_edges": sum(edge_counts.values())})
     return pd.DataFrame(rows)
 
 

@@ -1,6 +1,6 @@
 # Python 3.11, 3.12 or 3.13. These pin the public API versions used by this demo.
 # The paper's native comparators used these exact method versions.
-mantpy[patch,gnn]==1.0.2
+mantpy[patch,gnn]==1.1.0
 pybanksy==1.3.5
 cellcharter==0.3.7
 torchgmm==0.1.4

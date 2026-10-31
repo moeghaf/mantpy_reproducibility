@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict
 from typing import Any
 
 import numpy as np
-from scipy.spatial import cKDTree
+import mantpy as mt
 
 _EPS = 1e-12
 
@@ -69,29 +69,13 @@ def anomaly_scores(proba: np.ndarray, observed: np.ndarray, signal: np.ndarray, 
     return a
 
 
-def clean_once(proba: np.ndarray, observed: np.ndarray, signal: np.ndarray, xy: np.ndarray, rec: CleaningRecipe) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """One cleaning pass. Returns (new_labels, anomaly, relabelled_mask)."""
-    proba = apply_temperature(proba, rec.temperature)
-    anom = anomaly_scores(proba, observed, signal, rec.anomaly_stat)
-    pred = proba.argmax(axis=1)
-    p_pred = proba.max(axis=1)
-    if rec.majority_smoothing and rec.gate_radius_px > 0:
-        idx = np.flatnonzero(signal)
-        tree = cKDTree(xy[idx])
-        nb = tree.query_ball_point(xy[idx], r=rec.gate_radius_px)
-        sm = pred.copy()
-        K = proba.shape[1]
-        for a_i, lst in zip(idx, nb):
-            votes = np.bincount(pred[idx[lst]], minlength=K)
-            sm[a_i] = int(votes.argmax())
-        pred = sm
-    cand = signal & (pred != observed) & (anom >= rec.threshold) & (p_pred >= rec.min_pred_conf)
-    if rec.gate_radius_px > 0 and rec.gate_min_neighbours > 0 and cand.any():
-        cidx = np.flatnonzero(cand)
-        tree = cKDTree(xy[cidx])
-        counts = tree.query_ball_point(xy[cidx], r=rec.gate_radius_px, return_length=True)
-        keep = (np.asarray(counts) - 1) >= rec.gate_min_neighbours
-        cand = np.zeros_like(cand); cand[cidx[keep]] = True
-    new = observed.copy()
-    new[cand] = pred[cand]
-    return new, anom, cand
+def clean_once(proba, observed, signal, xy, rec: CleaningRecipe):
+    """One recorded cleaning pass using the public probability reconstruction API."""
+    result = mt.tl.reconstruct_labels(
+        observed, proba, threshold=rec.threshold, categories=np.arange(proba.shape[1]),
+        signal=signal, score=rec.anomaly_stat, min_confidence=rec.min_pred_conf,
+        coordinates=xy, spatial_radius=rec.gate_radius_px,
+        min_neighbours=rec.gate_min_neighbours if rec.gate_radius_px > 0 else 0,
+        majority_smoothing=rec.majority_smoothing, temperature=rec.temperature, eps=_EPS,
+    )
+    return result.labels, result.anomaly_scores, result.relabelled

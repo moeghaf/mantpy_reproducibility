@@ -1,5 +1,7 @@
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+notebooks/demos/data/
+notebooks/demos/demo_results/
 notebooks/experiments/results/
 notebooks/experiments/cache/

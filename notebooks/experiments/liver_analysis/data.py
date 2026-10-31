@@ -43,21 +43,12 @@ def load_cohort(cache_dir=None):
 
 
 def normalise(images):
-    """Pooled arcsinh / 99.5th-percentile scaling of each marker (one bound per marker for the whole cohort)."""
-    rois = sorted(images)
-    bounds = []
-    for c in range(len(MARKERS)):
-        pooled = np.concatenate([np.arcsinh(images[r][c].reshape(-1) / COFACTOR) for r in rois]).astype(np.float32)
-        bounds.append(np.percentile(pooled, PERCENTILE))
-        del pooled
-    bounds = np.asarray(bounds, dtype=np.float32)
-    out = {}
-    for r in rois:
-        img = np.empty_like(images[r])
-        for c in range(len(MARKERS)):
-            img[c] = np.clip(np.arcsinh(images[r][c] / COFACTOR) / bounds[c], 0.0, 1.0)
-        out[r] = img
-    return out, bounds
+    """Fit the original cohort-pooled pixel transform, then apply its frozen bounds."""
+    normalizer = mt.pp.ImageNormalizer(
+        method="pooled_arcsinh_percentile", cofactor=COFACTOR, percentile=PERCENTILE,
+        channel_names=MARKERS,
+    ).fit({roi: images[roi] for roi in sorted(images)})
+    return normalizer.transform_cohort(images), normalizer.bounds_
 
 
 def patch_features(norm, meta) -> pd.DataFrame:

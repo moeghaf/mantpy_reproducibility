@@ -75,3 +75,21 @@ def build_graphs(cell_xy, patch_xy, patch_grid, background, patch_size, recipe: 
     """Build the study's three graph layers using public Mantpy graph rules."""
     from .mantpy_graphs import build_graphs_mantpy
     return build_graphs_mantpy(cell_xy, patch_xy, patch_grid, background, patch_size, recipe)
+
+
+
+def joint_graph(roi, graph):
+    """ID-preserving carrier for already-built study matrices; topology is unchanged."""
+    import anndata as ad
+    import mantpy as mt
+    import pandas as pd
+    cells = ad.AnnData(obs=pd.DataFrame({"cell_type": roi.cell_type}, index=roi.cell_id.astype(str)))
+    patches = ad.AnnData(obs=pd.DataFrame({"ecm_cluster": roi.label}, index=roi.patch_id.astype(str)))
+    cells.obsm["spatial"], patches.obsm["spatial"] = roi.cell_xy, roi.patch_xy
+    joint = mt.gr.joint_graph_from_connectivities(
+        cells, patches, cell_connectivities=graph.cc_w, ecm_connectivities=graph.ee_w,
+        cell_ecm_connectivities=graph.ce_w, cell_distances=graph.cc_d,
+        ecm_distances=graph.ee_d, cell_ecm_distances=graph.ce_d,
+    )
+    joint.uns["cell_ecm_graph"] = mt.gr.to_networkx(joint)
+    return joint

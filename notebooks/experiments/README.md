@@ -7,6 +7,10 @@
 Recompute the paper experiments with the published settings, without rerunning
 optimisation. The [short demos](../demos/README.md) remain available separately.
 
+This checkout contains the development API migration. Install its matching
+package before running; see [development setup](#development-api-inspection).
+The Colab buttons and measured times below refer to the published reference.
+
 | Notebook | Analysis | Runtime | Colab |
 |---|---|---|---|
 | [Intestine](mantpy_intestine_full.ipynb) | Both images, method comparisons, training seeds and graph controls | 83.1 min, Colab T4 (measured) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
@@ -19,7 +23,8 @@ Installation is excluded; first downloads and hardware can affect elapsed time.
 Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h on
 Colab T4/CPU. Full liver control and permutation runtimes have not yet been measured.
 
-To run:
+To run locally, first install the matching Mantpy development wheel or source
+checkout, then:
 
 ```bash
 cd notebooks/experiments
@@ -28,7 +33,7 @@ jupyter lab
 ```
 
 Use `intestine_requirements.txt` or `liver_requirements.txt` for those studies.
-On Colab, use a button above and keep the default Latest runtime. Run setup,
+For the published reference on Colab, use a button above and keep the default Latest runtime. Run setup,
 restart when requested, then run all cells; companion files download automatically.
 
 Models are fitted afresh using the saved selections for each training fold.
@@ -43,3 +48,21 @@ Fresh results and deposited paper references are labelled separately.
 Ghafoor et al. (2026).
 *[Mantpy: a framework for extracellular matrix analysis in spatial proteomics](https://doi.org/10.1101/2025.06.04.657781).*
 bioRxiv.
+
+## Development API inspection
+
+These notebooks target Mantpy 1.1.0 and checksum-pinned companions at the
+mantpy-api-v1.1.0 repository tag. The automatic Colab path requires both that
+tag and the matching PyPI release; use the local candidate until publication.
+
+For local inspection, install the matching 1.1.0 candidate wheel or package
+checkout with patch and gnn extras, then the study requirements. Setup prefers
+MANTPY_PACKAGE_SOURCE or MANTPY_PACKAGE_WHEEL, and detects an adjacent
+checkout or a single uploaded wheel before selecting the public release.
+
+For Colab inspection before publication, upload the matching notebook, setup
+file, companions and 1.1.0 candidate wheel. Full experiment companions may be
+supplied as mantpy_experiment_companions.zip. Setup verifies all checksums;
+restart when requested. Candidate execution status is recorded in the inspection
+gallery. The complete liver controls and 70-allocation permutation test have
+not been rerun for this migration.
