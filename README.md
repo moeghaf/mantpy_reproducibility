@@ -7,9 +7,9 @@
 Short tutorials and full experiments demonstrate ECM analysis from image loading
 to spatial graphs and interpretation.
 
-The three demos and full lung notebook include outputs from fresh local runs
-with Mantpy 1.1.0. Calculations used by the other full notebooks passed focused
-checks; their complete runs are recorded separately.
+The three demos and full intestine and lung notebooks include outputs from fresh
+local runs with Mantpy 1.1.0. The full liver run is in progress; its calculations
+also passed focused checks.
 
 ## Short tutorials
 
@@ -29,7 +29,7 @@ without rerunning optimisation.
 
 | Notebook | Analysis | Runtime and execution status | Colab |
 |---|---|---|---|
-| [Intestine](notebooks/experiments/mantpy_intestine_full.ipynb) | Both images, spatial methods, seeds and graph controls | 83.1 min, Colab T4 (prior full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
+| [Intestine](notebooks/experiments/mantpy_intestine_full.ipynb) | Both images, spatial methods, seeds and graph controls | 37 min 43 s, local GPU/CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
 | [Liver](notebooks/experiments/mantpy_liver_full.ipynb) | All 24 ROIs, held-out mouse prediction and integrated gradients | 48 min 47 s, local GPU/CPU (prior full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
 | [Lung](notebooks/experiments/mantpy_lung_full.ipynb) | All six ROIs, cell–ECM associations and held-out mouse label reconstruction | 7 min 53 s, local CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
 

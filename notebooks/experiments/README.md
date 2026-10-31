@@ -7,14 +7,14 @@
 Recompute the paper experiments with the published settings, without rerunning
 optimisation. The [short demos](../demos/README.md) remain available separately.
 
-These notebooks use Mantpy 1.1.0. The full lung notebook includes outputs from
-a fresh local CPU run. Intestine and liver timings below are recorded prior
-full runs; their helper calculations passed focused checks against the original
-recipes. The three [local demos](../demos/README.md) were also freshly executed.
+These notebooks use Mantpy 1.1.0. Intestine and lung include outputs from fresh
+local runs. The full liver run is in progress; its timing below is a recorded
+prior full run. Helper calculations passed focused checks against the original
+recipes, and the three [local demos](../demos/README.md) were freshly executed.
 
 | Notebook | Analysis | Runtime and execution status | Colab |
 |---|---|---|---|
-| [Intestine](mantpy_intestine_full.ipynb) | Both images, method comparisons, training seeds and graph controls | 83.1 min, Colab T4 (prior full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
+| [Intestine](mantpy_intestine_full.ipynb) | Both images, method comparisons, training seeds and graph controls | 37 min 43 s, local GPU/CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
 | [Liver](mantpy_liver_full.ipynb) | All ROIs, mouse-held-out prediction and integrated gradients | 48 min 47 s, local GPU/CPU (prior full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
 | [Lung](mantpy_lung_full.ipynb) | Cell–ECM associations, both held-out mice and repeated label reconstruction | 7 min 53 s, local CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
 | [Liver controls](mantpy_liver_controls.ipynb) | Fold-specific selected classifiers, encoder stability and representation controls | Several hours or more (estimate) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_controls.ipynb) |
