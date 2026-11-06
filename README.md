@@ -35,8 +35,10 @@ without rerunning optimisation.
 Installation is excluded; first downloads and hardware can affect elapsed time.
 Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h on Colab.
 [Liver supplementary controls](notebooks/experiments/mantpy_liver_controls.ipynb)
-and the [exact permutation test](notebooks/experiments/mantpy_liver_permutation.ipynb)
-are separate, longer runs that have not been completed for this update.
+(within-fold tuned classifiers, Supplementary Table 5) and the
+[exact permutation test](notebooks/experiments/mantpy_liver_permutation.ipynb)
+(all 70 label allocations) are separate, resumable runs of several hours or
+more; they are provided without saved outputs because of their runtime.
 See [full experiment setup](notebooks/experiments/README.md).
 
 ## Run
@@ -60,7 +62,8 @@ Setup installs Mantpy 1.1.0 and verifies companions from the immutable
 
 [Mantpy package](https://github.com/moeghaf/Mantpy) ·
 [Source data](source_data/) ·
-[Paper figure code](figures/)
+[Paper figure code](figures/) ·
+[Licence (MIT)](LICENSE)
 
 Ghafoor et al. (2026).
 *[Mantpy: a framework for extracellular matrix analysis in spatial proteomics](https://doi.org/10.1101/2025.06.04.657781).*
