@@ -21,8 +21,9 @@ recipes, and the three [local demos](../demos/README.md) were freshly executed.
 
 Installation is excluded; first downloads and hardware can affect elapsed time.
 Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h on
-Colab T4/CPU. The complete liver controls and permutation test have not been
-completed for this update; their runtimes remain estimates.
+Colab T4/CPU. The liver controls and permutation test are provided without
+saved outputs because of their runtime; their runtimes are estimates, and both
+resume from checkpoints.
 
 To run locally (Python 3.11/3.12/3.13):
 
