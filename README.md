@@ -55,6 +55,23 @@ Use `liver_demo_requirements.txt` or `lung_demo_requirements.txt` for the other
 tutorials. For full experiments, use the requirements in `notebooks/experiments/`.
 Data download automatically.
 
+## System requirements
+
+- **Python and operating systems:** Python 3.11, 3.12 or 3.13 on Windows, Linux
+  or macOS. The saved outputs come from local runs on Windows 11; the notebooks
+  also include Google Colab setup.
+- **Dependencies:** the exact tested versions are pinned in each
+  `*_requirements.txt` file (Mantpy 1.1.0 and its companions).
+- **Hardware:** no non-standard hardware is required. Lung runs on the CPU.
+  Intestine and liver train models and are much faster with a CUDA GPU; the
+  saved runs used an NVIDIA RTX 4070 SUPER.
+- **Install time:** about 3.5 minutes for the lung demo requirements with
+  JupyterLab in a clean environment on a desktop computer (Windows 11, Intel
+  Core i7-14700F, 32 GB RAM). The intestine and liver requirements take longer
+  because they install PyTorch.
+- **Expected output and run time:** every notebook listed above is saved with
+  its outputs, and its measured run time is given in the tables.
+
 **On Colab:** keep the default **Latest** runtime, with a GPU for intestine/liver
 and CPU for lung. Run setup, restart when requested, then run all cells.
 Setup installs Mantpy 1.1.0 and verifies companions from the immutable
