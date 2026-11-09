@@ -2,61 +2,75 @@
   <img src="mantpy_logo.png" alt="Mantpy" width="260"/>
 </p>
 
-# Mantpy notebook tutorials
+# Mantpy: reproducing the paper
 
-Short tutorials and full experiments demonstrate ECM analysis from image loading
-to spatial graphs and interpretation.
+Code and data to reproduce every figure of
+*[Mantpy: a framework for extracellular matrix analysis in spatial proteomics](https://doi.org/10.1101/2025.06.04.657781)*
+(Ghafoor et al., 2026). There are three ways, from fastest to most complete.
 
-The three demos and the full liver and lung notebooks include outputs
-from fresh local runs with Mantpy 1.1.0.
+| | What it does | Time |
+|---|---|---|
+| [1. Notebooks](#1-notebooks) | Refit each figure from the raw images with the paper's settings | 1 to 30 min |
+| [2. Full scripts](#2-full-scripts) | Rerun each experiment end to end, including the search for the settings | hours, GPU or cluster |
+| [3. Redraw the figures](#3-redraw-the-figures) | Draw the published figures from the saved numbers | seconds |
 
-## Reproduce results on colabs (skips hyperparameter optimisation)
+## 1. Notebooks
 
-| Notebook | Analysis | Measured runtime | Colab |
-|---|---|---|---|
-| [Intestine: Figure 2, Image 1](notebooks/demos/mantpy_fig2_image1_demo.ipynb) | Pixel and patch K-means, one shared CNN, GraphMAE, UTAG, BANKSY and CellCharter | 2 min 52 s | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/demos/mantpy_fig2_image1_demo.ipynb) |
-| [Liver: composition and spatial organisation](notebooks/demos/mantpy_liver_demo.ipynb) | Six-marker cohort clustering, patch graphs, connected regions, held-out GraphSAGE prediction and integrated gradients | 6 min 15 s | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/demos/mantpy_liver_demo.ipynb) |
-| [Lung: cell–ECM interactions](notebooks/demos/mantpy_lung_demo.ipynb) | Cell–ECM contacts, airway epithelial cell associations and label reconstruction in a held-out mouse | 37 s | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/demos/mantpy_lung_demo.ipynb) |
+One notebook per figure. Each refits the analysis from the raw images, draws every panel and prints
+each value beside the paper's. The search for the settings is not rerun.
 
-Demo times exclude installation and downloads; intestine and liver used an RTX
-4070 SUPER, and lung used CPU only. All demos use fixed settings and seed 0.
+| Figure | Notebook | Runtime | Hardware | Colab |
+|---|---|---|---|---|
+| 2 · Small intestine: tissue layers from collagen IV | [mantpy_intestine_fig2.ipynb](notebooks/mantpy_intestine_fig2.ipynb) | 27 min | GPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_intestine_fig2.ipynb) |
+| 3 · Liver: ECM composition and organisation in infection | [mantpy_liver_fig3.ipynb](notebooks/mantpy_liver_fig3.ipynb) | 6 min | GPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_liver_fig3.ipynb) |
+| 4 · Lung: cell–matrix association and label recovery | [mantpy_lung_fig4.ipynb](notebooks/mantpy_lung_fig4.ipynb) | 52 s | CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_lung_fig4.ipynb) |
 
-## Full end-to-end experiment scripts
+Runtimes exclude installation and downloads and were measured on desktop computers (intestine with
+an NVIDIA RTX 4070 SUPER, liver with an RTX 3080 Ti, lung on the CPU). The notebooks are stored with their outputs, so the results can be read without running
+anything. Results are close to the paper's but not identical, because every model is refitted.
 
-Command-line scripts rerun each experiment from the raw data, including the
-optimisation of settings, on a workstation or a cluster.
+## 2. Full scripts
+
+Command-line scripts rerun each experiment from the raw data, including the search for the settings.
 
 ```bash
 pip install -e pipelines
+```
+
+```bash
 mantpy-intestine reproduce --results results/intestine
 ```
 
 | Command | Experiment |
 |---|---|
-| `mantpy-intestine` | Small intestine (Figure 2) |
-| `mantpy-liver` | Liver (Figure 3) |
-| `mantpy-lung` | Lung (Figure 4) |
+| `mantpy-intestine` | Small intestine (Figure 2, Supplementary Fig. 1, Supplementary Table 3) |
+| `mantpy-liver` | Liver (Figure 3, Supplementary Fig. 2, Supplementary Tables 4 and 5) |
+| `mantpy-lung` | Lung (Figure 4, Supplementary Fig. 3, Supplementary Table 6) |
 
-`reproduce` uses the settings selected in the paper and prints each result beside
-the paper's; `all` also runs the optimisation. See [pipelines](pipelines/README.md)
-for the stages, outputs and cluster job files.
+`reproduce` uses the paper's selected settings and prints each result beside the paper's; `all`
+also reruns the search. Stages, outputs and cluster job files are described in
+[pipelines](pipelines/README.md).
 
+## 3. Redraw the figures
 
-## System requirements
+[source_data](source_data/) holds the numbers behind every figure and table, and
+[figures](figures/) the plotting code that produced the published figures.
 
-Python 3.11 to 3.13; the exact tested versions are pinned in the
-`*_requirements.txt` files. The notebooks were run on Windows 11 (lung on the
-CPU; intestine and liver with an NVIDIA RTX 4070 SUPER) and also run online
-with the Colab buttons above. Installing the lung demo takes about 3.5 minutes
-on a desktop computer; intestine and liver take longer because they install
-PyTorch.
+```python
+from paper_figures import plot_figure4   # run from the figures/ folder
+plot_figure4().savefig("fig4.pdf")
+```
+
+## Requirements
+
+- Python 3.11 to 3.13 and Mantpy 1.2.0 or newer (`pip install "mantpy[patch,gnn]"`). The packages for
+  each notebook are listed in its `*_requirements.txt` file; on Colab the first cell installs them.
+- Intestine and liver need a CUDA GPU; lung runs on a CPU.
+- Data download automatically from Zenodo and the HuBMAP Data Portal on first use.
+- Tested on Windows 11.
+
+## Links
 
 [Mantpy package](https://github.com/moeghaf/Mantpy) ·
-[Source data](source_data/) ·
-[Paper figure code](figures/) ·
+[Paper (bioRxiv)](https://doi.org/10.1101/2025.06.04.657781) ·
 [Licence (MIT)](LICENSE)
-
-Ghafoor et al. (2026).
-*[Mantpy: a framework for extracellular matrix analysis in spatial proteomics](https://doi.org/10.1101/2025.06.04.657781).*
-bioRxiv.
-
