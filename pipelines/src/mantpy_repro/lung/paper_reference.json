@@ -1,5 +1,5 @@
 {
- "source": "source_data/fig4.xlsx, source_data/supplementary_figure_3.xlsx and source_data/supplementary_table_6.csv of the Mantpy paper. 'text' holds numbers reported only in the paper's text, at their printed precision. 'refit_control' holds the control's record published in notebooks/experiments/lung_selected.json.",
+ "source": "source_data/fig4.xlsx, source_data/supplementary_figure_3.xlsx and source_data/supplementary_table_6.csv of the Mantpy paper. 'text' holds numbers reported only in the paper's text, at their printed precision. 'refit_control' holds the control's record published in lung_selected.json of the paper's repository.",
  "marker_names": {
   "HABP": "HA",
   "Col-VI": "Col VI",
