@@ -4,16 +4,17 @@
 
 # Mantpy full experiments
 
-Recompute the paper experiments with the published settings, without rerunning
-optimisation. The [short demos](../demos/README.md) remain available separately.
+Recompute the liver and lung experiments with the published settings, without
+rerunning optimisation. The [short demos](../demos/README.md) remain available
+separately. Full end-to-end experiment scripts for intestine, liver and lung,
+including the optimisation, are in [`pipelines/`](../../pipelines/README.md).
 
-These notebooks use Mantpy 1.1.0. Intestine, liver and lung include outputs from
+These notebooks use Mantpy 1.1.0. Liver and lung include outputs from
 fresh local runs. Helper calculations passed focused checks against the original
 recipes, and the three [local demos](../demos/README.md) were freshly executed.
 
 | Notebook | Analysis | Runtime and execution status | Colab |
 |---|---|---|---|
-| [Intestine](mantpy_intestine_full.ipynb) | Both images, method comparisons, training seeds and graph controls | 37 min 43 s, local GPU/CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
 | [Liver](mantpy_liver_full.ipynb) | All ROIs, mouse-held-out prediction and integrated gradients | 1 h 00 min 51 s, local GPU/CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
 | [Lung](mantpy_lung_full.ipynb) | Cell–ECM associations, both held-out mice and repeated label reconstruction | 7 min 53 s, local CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
 | [Liver controls](mantpy_liver_controls.ipynb) | Fold-specific selected classifiers, encoder stability and representation controls | Several hours or more (estimate) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_controls.ipynb) |
@@ -33,7 +34,7 @@ python -m pip install -r lung_requirements.txt jupyterlab
 jupyter lab
 ```
 
-Use `intestine_requirements.txt` or `liver_requirements.txt` for those studies.
+Use `liver_requirements.txt` for the liver notebooks.
 On Colab, use a button above and keep the default Latest runtime. Run setup,
 restart when requested, then run all cells; companion files download automatically.
 Setup installs Mantpy 1.1.0 and verifies companions from the immutable
