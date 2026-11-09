@@ -1,5 +1,5 @@
 {
- "description": "Settings selected in the Mantpy paper for the Schistosoma-infected mouse liver (Fig. 3, Supplementary Fig. 2, Supplementary Tables 4 and 5). Derived from notebooks/experiments/liver_selected.json; the CNN architecture, which that file leaves to its code, is taken from the selection record of the paper.",
+ "description": "Settings selected in the Mantpy paper for the Schistosoma-infected mouse liver (Fig. 3, Supplementary Fig. 2, Supplementary Tables 4 and 5). Taken from the selection record of the paper.",
  "dataset": {
   "loader": "mantpy.datasets.schistosoma_ecm",
   "zenodo_record": "21538382",

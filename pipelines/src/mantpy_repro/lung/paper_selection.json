@@ -1,6 +1,6 @@
 {
  "description": "Settings selected in the Mantpy paper for the healthy mouse lung cell-ECM analysis (Fig. 4, Supplementary Fig. 3, Supplementary Table 6).",
- "source": "notebooks/experiments/lung_selected.json of the paper's repository",
+ "source": "lung_selected.json of the paper's repository",
  "selection_source_sha256": "e9808a4fd1f5e8c5a9a9cba404019ec2e2dca83d93235e1a1afa68c0cb3a31e8",
  "dataset": {
   "doi": "10.5281/zenodo.21538382",

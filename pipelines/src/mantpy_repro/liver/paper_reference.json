@@ -1,5 +1,5 @@
 {
- "source": "source_data/fig3.xlsx, supplementary_figure_2.xlsx and supplementary_table_5.csv of the Mantpy paper. Keys ending in '_record' are not in the source data and come from the run records of the paper (notebooks/experiments/liver_selected.json and the original selection, coverage, warm-start and permutation files).",
+ "source": "source_data/fig3.xlsx, supplementary_figure_2.xlsx and supplementary_table_5.csv of the Mantpy paper. Keys ending in '_record' are not in the source data and come from the run records of the paper (the selection, coverage, warm-start and permutation files).",
  "config_id": "c964cbf941239",
  "encoder_id": "e8d26a3ee3739",
  "bounds": {
