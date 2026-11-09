@@ -1,0 +1,345 @@
+{
+ "description": "Settings selected in the Mantpy paper for the Schistosoma-infected mouse liver (Fig. 3, Supplementary Fig. 2, Supplementary Tables 4 and 5). Derived from notebooks/experiments/liver_selected.json; the CNN architecture, which that file leaves to its code, is taken from the selection record of the paper.",
+ "dataset": {
+  "loader": "mantpy.datasets.schistosoma_ecm",
+  "zenodo_record": "21538382",
+  "n_rois": 24,
+  "n_mice": 8
+ },
+ "normalization": {
+  "cofactor": 1.0,
+  "percentile": 99.5,
+  "scope": "cohort"
+ },
+ "config_id": "liver6/c964cbf941239",
+ "encoder_id": "liver6/e8d26a3ee3739",
+ "config": {
+  "patch_size": 10,
+  "cnn_blocks": 2,
+  "cnn_width": 32,
+  "cnn_readout": "maxpool2",
+  "cnn_activation": "gelu",
+  "cnn_latent": 96,
+  "cnn_projection": 64,
+  "cnn_temperature": 0.1,
+  "cnn_augment": "default",
+  "cnn_lr": 0.0003,
+  "cnn_weight_decay": 0.0001,
+  "cnn_epochs": 200,
+  "cnn_batch": 1024,
+  "cnn_standardize": false,
+  "n_clusters": 6
+ },
+ "stability5": 0.8122853985801456,
+ "stability3": 0.8047703693785825,
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "encoder_threads": 2,
+ "classifier_threads": 16,
+ "fixed_classifier": {
+  "graph_type": "delaunay",
+  "conv": "sage",
+  "hidden_dim": 64,
+  "n_layers": 2,
+  "aggr": "mean",
+  "norm": "none",
+  "residual": false,
+  "activation": "relu",
+  "dropout": 0.2,
+  "input_dropout": 0.0,
+  "optimizer": "adam",
+  "lr": 0.005,
+  "weight_decay": 0.0001,
+  "epochs": 120,
+  "lr_schedule": "constant",
+  "class_weight": true,
+  "label_smoothing": 0.0
+ },
+ "ig_steps": 50,
+ "tuned_classifier": {
+  "mouse_01": {
+   "trial": 77,
+   "inner_objective": 0.3012439550522155,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius50",
+    "conv": "sage",
+    "hidden_dim": 256,
+    "n_layers": 4,
+    "aggr": "mean",
+    "norm": "none",
+    "residual": true,
+    "activation": "gelu",
+    "dropout": 0.24821934257688338,
+    "input_dropout": 0.017203833959224455,
+    "optimizer": "adam",
+    "lr": 0.0021082298958799745,
+    "weight_decay": 3.1902929386168413e-06,
+    "epochs": 300,
+    "lr_schedule": "constant",
+    "class_weight": true,
+    "label_smoothing": 0.02427142239538633
+   }
+  },
+  "mouse_02": {
+   "trial": 59,
+   "inner_objective": 0.23912914079262682,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius40",
+    "conv": "sage",
+    "hidden_dim": 128,
+    "n_layers": 4,
+    "aggr": "max",
+    "norm": "layer",
+    "residual": true,
+    "activation": "relu",
+    "dropout": 0.012554535037485515,
+    "input_dropout": 0.12838015256962793,
+    "optimizer": "adam",
+    "lr": 0.028189702201247415,
+    "weight_decay": 1.3879818555987034e-05,
+    "epochs": 500,
+    "lr_schedule": "constant",
+    "class_weight": true,
+    "label_smoothing": 0.03632470442507244
+   }
+  },
+  "mouse_03": {
+   "trial": 72,
+   "inner_objective": 0.26314238448852906,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius50",
+    "conv": "sage",
+    "hidden_dim": 128,
+    "n_layers": 4,
+    "aggr": "mean",
+    "norm": "none",
+    "residual": false,
+    "activation": "relu",
+    "dropout": 0.20718348545278584,
+    "input_dropout": 0.21714845005756228,
+    "optimizer": "adam",
+    "lr": 0.0038900374360165317,
+    "weight_decay": 5.433476306997239e-06,
+    "epochs": 200,
+    "lr_schedule": "constant",
+    "class_weight": true,
+    "label_smoothing": 0.029362803099888295
+   }
+  },
+  "mouse_04": {
+   "trial": 69,
+   "inner_objective": 0.3450570919198149,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius40",
+    "conv": "gat",
+    "hidden_dim": 64,
+    "n_layers": 3,
+    "heads": 4,
+    "norm": "batch",
+    "residual": true,
+    "activation": "gelu",
+    "dropout": 0.2738879975557685,
+    "input_dropout": 0.16661482484364207,
+    "optimizer": "adam",
+    "lr": 0.020396194832896234,
+    "weight_decay": 2.0568859483708522e-05,
+    "epochs": 300,
+    "lr_schedule": "cosine",
+    "class_weight": true,
+    "label_smoothing": 0.08990173054052913
+   }
+  },
+  "mouse_05": {
+   "trial": 46,
+   "inner_objective": 0.298622351659689,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius40",
+    "conv": "sage",
+    "hidden_dim": 128,
+    "n_layers": 4,
+    "aggr": "mean",
+    "norm": "none",
+    "residual": true,
+    "activation": "relu",
+    "dropout": 0.28138178886408965,
+    "input_dropout": 0.1425840859728163,
+    "optimizer": "adam",
+    "lr": 0.005611958049649273,
+    "weight_decay": 2.0559740930295268e-05,
+    "epochs": 500,
+    "lr_schedule": "cosine",
+    "class_weight": true,
+    "label_smoothing": 0.03229767553712194
+   }
+  },
+  "mouse_06": {
+   "trial": 76,
+   "inner_objective": 0.25888910534718074,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius50",
+    "conv": "gin",
+    "hidden_dim": 256,
+    "n_layers": 2,
+    "train_eps": false,
+    "norm": "batch",
+    "residual": false,
+    "activation": "relu",
+    "dropout": 0.3461831482023608,
+    "input_dropout": 0.2610018134832177,
+    "optimizer": "adam",
+    "lr": 0.004690033086271191,
+    "weight_decay": 1.6674439452987457e-06,
+    "epochs": 200,
+    "lr_schedule": "cosine",
+    "class_weight": true,
+    "label_smoothing": 0.01252150821691057
+   }
+  },
+  "mouse_07": {
+   "trial": 74,
+   "inner_objective": 0.2513439928225844,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius40",
+    "conv": "sage",
+    "hidden_dim": 128,
+    "n_layers": 4,
+    "aggr": "mean",
+    "norm": "none",
+    "residual": true,
+    "activation": "gelu",
+    "dropout": 0.04933108615198927,
+    "input_dropout": 0.22593874825099458,
+    "optimizer": "adam",
+    "lr": 0.00835493587709956,
+    "weight_decay": 1.5575260346381467e-06,
+    "epochs": 300,
+    "lr_schedule": "constant",
+    "class_weight": true,
+    "label_smoothing": 0.02199509981783933
+   }
+  },
+  "mouse_08": {
+   "trial": 78,
+   "inner_objective": 0.28581166294124855,
+   "n_trials": 80,
+   "config": {
+    "graph_type": "radius40",
+    "conv": "sage",
+    "hidden_dim": 128,
+    "n_layers": 4,
+    "aggr": "mean",
+    "norm": "none",
+    "residual": true,
+    "activation": "relu",
+    "dropout": 0.0210705217418272,
+    "input_dropout": 0.13814434225642175,
+    "optimizer": "adam",
+    "lr": 0.014545949255876182,
+    "weight_decay": 0.00047467590110792583,
+    "epochs": 500,
+    "lr_schedule": "constant",
+    "class_weight": true,
+    "label_smoothing": 0.012157175838653146
+   }
+  }
+ },
+ "composition_lr": {
+  "mouse_01": {
+   "C": 1.0,
+   "inner_nll": {
+    "0.01": 0.8669425398316791,
+    "0.1": 0.6480513824429208,
+    "1.0": 0.42471939551861226,
+    "10.0": 0.4347901987912856
+   }
+  },
+  "mouse_02": {
+   "C": 1.0,
+   "inner_nll": {
+    "0.01": 0.8411520460413067,
+    "0.1": 0.6103607471333191,
+    "1.0": 0.4616289118487895,
+    "10.0": 0.4909933069478143
+   }
+  },
+  "mouse_03": {
+   "C": 10.0,
+   "inner_nll": {
+    "0.01": 0.8406641821669,
+    "0.1": 0.5751533145902102,
+    "1.0": 0.3126616754692469,
+    "10.0": 0.16531730987658544
+   }
+  },
+  "mouse_04": {
+   "C": 10.0,
+   "inner_nll": {
+    "0.01": 0.857344691279443,
+    "0.1": 0.6372624872719932,
+    "1.0": 0.44873915510675927,
+    "10.0": 0.4101654425546216
+   }
+  },
+  "mouse_05": {
+   "C": 10.0,
+   "inner_nll": {
+    "0.01": 0.869121614300248,
+    "0.1": 0.6879533702251958,
+    "1.0": 0.47366709529258555,
+    "10.0": 0.4060728466639606
+   }
+  },
+  "mouse_06": {
+   "C": 1.0,
+   "inner_nll": {
+    "0.01": 0.8740433370227135,
+    "0.1": 0.7262383432685077,
+    "1.0": 0.5919068467930141,
+    "10.0": 0.6295288415782706
+   }
+  },
+  "mouse_07": {
+   "C": 10.0,
+   "inner_nll": {
+    "0.01": 0.8682541770170351,
+    "0.1": 0.6724440589547847,
+    "1.0": 0.45680688691365756,
+    "10.0": 0.4143025700909306
+   }
+  },
+  "mouse_08": {
+   "C": 1.0,
+   "inner_nll": {
+    "0.01": 0.8745278557925332,
+    "0.1": 0.7059730792033377,
+    "1.0": 0.5763799823716594,
+    "10.0": 0.7388407228440482
+   }
+  }
+ },
+ "partition": {
+  "file": "paper_partition.npz",
+  "source_labels_sha256": "a598e3391d69ae73415750559b1a6fcc1020fefb5de5051f96d459e9a849731d",
+  "n_signal": 107740,
+  "raw_to_ecm_label": {
+   "2": 0,
+   "5": 1,
+   "0": 2,
+   "3": 3,
+   "4": 4,
+   "1": 5
+  }
+ }
+}

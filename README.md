@@ -7,7 +7,7 @@
 Short tutorials and full experiments demonstrate ECM analysis from image loading
 to spatial graphs and interpretation.
 
-The three demos and full intestine, liver and lung notebooks include outputs
+The three demos and the full liver and lung notebooks include outputs
 from fresh local runs with Mantpy 1.1.0.
 
 ## Short tutorials
@@ -21,16 +21,33 @@ from fresh local runs with Mantpy 1.1.0.
 Demo times exclude installation and downloads; intestine and liver used an RTX
 4070 SUPER, and lung used CPU only. All demos use fixed settings and seed 0.
 
-## Full experiments
+## Full end-to-end experiment scripts
 
-Fit models afresh using the paper's selected settings, folds and repeats,
-without rerunning optimisation.
+Command-line scripts rerun each experiment from the raw data, including the
+optimisation of settings, on a workstation or a cluster.
 
-| Notebook | Analysis | Runtime and execution status | Colab |
+```bash
+pip install -e pipelines
+mantpy-intestine reproduce --results results/intestine
+```
+
+| Command | Experiment |
+|---|---|
+| `mantpy-intestine` | Small intestine (Figure 2) |
+| `mantpy-liver` | Liver (Figure 3) |
+| `mantpy-lung` | Lung (Figure 4) |
+
+`reproduce` uses the settings selected in the paper and prints each result beside
+the paper's; `all` also runs the optimisation. See [pipelines](pipelines/README.md)
+for the stages, outputs and cluster job files.
+
+The liver and lung experiments are also available as notebooks, which fit models
+afresh using the paper's selected settings, folds and repeats.
+
+| Notebook | Analysis | Runtime | Colab |
 |---|---|---|---|
-| [Intestine](notebooks/experiments/mantpy_intestine_full.ipynb) | Both images, spatial methods, seeds and graph controls | 37 min 43 s, local GPU/CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_intestine_full.ipynb) |
-| [Liver](notebooks/experiments/mantpy_liver_full.ipynb) | All 24 ROIs, held-out mouse prediction and integrated gradients | 1 h 00 min 51 s, local GPU/CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
-| [Lung](notebooks/experiments/mantpy_lung_full.ipynb) | All six ROIs, cell–ECM associations and held-out mouse label reconstruction | 7 min 53 s, local CPU (fresh full run) | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
+| [Liver](notebooks/experiments/mantpy_liver_full.ipynb) | All 24 ROIs, held-out mouse prediction and integrated gradients | 1 h 00 min 51 s, local GPU/CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_liver_full.ipynb) |
+| [Lung](notebooks/experiments/mantpy_lung_full.ipynb) | All six ROIs, cell–ECM associations and held-out mouse label reconstruction | 7 min 53 s, local CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/experiments/mantpy_lung_full.ipynb) |
 
 Installation is excluded; first downloads and hardware can affect elapsed time.
 Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h on Colab.
@@ -39,7 +56,7 @@ Liver used an RTX 4070 SUPER for the CNN and CPU for the GNNs; allow 1–2.5 h o
 [exact permutation test](notebooks/experiments/mantpy_liver_permutation.ipynb)
 (all 70 label allocations) are separate, resumable runs of several hours or
 more; they are provided without saved outputs because of their runtime.
-See [full experiment setup](notebooks/experiments/README.md).
+See [notebook setup](notebooks/experiments/README.md).
 
 ## Run
 
@@ -52,7 +69,7 @@ jupyter lab
 ```
 
 Use `liver_demo_requirements.txt` or `lung_demo_requirements.txt` for the other
-tutorials. For full experiments, use the requirements in `notebooks/experiments/`.
+tutorials. For the liver and lung notebooks, use the requirements in `notebooks/experiments/`.
 Data download automatically.
 
 ## System requirements

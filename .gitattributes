@@ -1,3 +1,7 @@
 # Companion manifests pin exact bytes, including line endings.
 notebooks/experiments/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 notebooks/demos/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.sbatch text eol=lf
+*.sh text eol=lf
+pipelines/**/*.py text eol=lf
+pipelines/**/*.json text eol=lf

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mantpy-repro"
+version = "0.1.0"
+description = "Command-line pipelines that rerun the experiments of the Mantpy paper end to end"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "mantpy[patch,gnn]>=1.1.0",
+  "optuna>=4.2",
+  "filelock>=3.12",
+  "scikit-image>=0.21",
+  "scikit-learn>=1.4",
+  "threadpoolctl>=3",
+  "tifffile",
+  "pandas>=2.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+mantpy-intestine = "mantpy_repro.intestine.cli:main"
+mantpy-liver = "mantpy_repro.liver.cli:main"
+mantpy-lung = "mantpy_repro.lung.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mantpy_repro"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["gpu: trains models on a GPU and compares them with the paper (several minutes)"]
