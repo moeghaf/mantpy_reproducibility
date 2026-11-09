@@ -1,0 +1,4 @@
+# Python 3.11, 3.12 or 3.13. Runs on a CPU.
+mantpy==1.2.0
+squidpy
+ipykernel

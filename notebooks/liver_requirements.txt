@@ -1,0 +1,4 @@
+# Python 3.11, 3.12 or 3.13, with a CUDA build of PyTorch.
+mantpy[patch,gnn]==1.2.0
+openpyxl
+ipykernel
