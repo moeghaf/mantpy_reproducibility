@@ -1,0 +1,274 @@
+{
+ "description": "Settings selected in the Mantpy paper for the two small-intestine collagen IV images (Fig. 2, Supplementary Fig. 1).",
+ "patch_size": 32,
+ "pixel_size_um": 0.37744,
+ "kmeans": {
+  "joint": {
+   "init": "k-means++",
+   "n_init": 10,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "random_state": 0,
+   "algorithm": "lloyd"
+  },
+  "matched": {
+   "init": "k-means++",
+   "n_init": 10,
+   "max_iter": 300,
+   "tol": 0.0001,
+   "algorithm": "lloyd"
+  }
+ },
+ "matched_cnn_fixed": {
+  "latent": 96,
+  "projection": 64,
+  "temperature": 0.2,
+  "lr": 0.001,
+  "weight_decay": 1e-05,
+  "batch": 1024,
+  "epochs": 200,
+  "augment": "default",
+  "standardize": true
+ },
+ "matched_graphmae_fixed": {
+  "hidden_dim": 128,
+  "encoder": "gin",
+  "decoder": "graphmae_remask",
+  "norm": "layernorm",
+  "mitigation": "jk",
+  "max_epochs": 200,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "recon_loss": "scaled_cosine",
+  "standardize": false
+ },
+ "seeds": {
+  "joint": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "matched": [
+   0,
+   1,
+   2
+  ]
+ },
+ "directed_edge_guard": 6000000,
+ "images": {
+  "intestine1": {
+   "k": 5,
+   "clip": 9928.0,
+   "pixel_threshold": 0.34971654415130615,
+   "patch_threshold": 0.13433519005775452,
+   "expected_nodes": 13376,
+   "joint_id": "original/c68eeade33176",
+   "joint": {
+    "patch_size": 32,
+    "neighbours": 120,
+    "continuity_thresh": 0.25,
+    "cnn_blocks": 3,
+    "cnn_width": 16,
+    "cnn_readout": "avgpool2",
+    "cnn_activation": "relu",
+    "cnn_latent": 96,
+    "cnn_projection": 64,
+    "cnn_temperature": 0.2,
+    "cnn_augment": "default",
+    "cnn_lr": 0.001,
+    "cnn_weight_decay": 1e-05,
+    "cnn_epochs": 200,
+    "cnn_batch": 1024,
+    "cnn_standardize": true,
+    "cnn_window": 1,
+    "edge_distance": "log",
+    "edge_orientation": true,
+    "edge_continuity": false,
+    "edge_use": "gine",
+    "gm_depth": 4,
+    "gm_width": 128,
+    "gm_mask": 0.5,
+    "gm_lr": 0.001,
+    "gm_weight_decay": 0.0001,
+    "gm_updates": 200,
+    "gm_standardize": false
+   },
+   "joint_stability5": 0.9475583772094154,
+   "matched_cnn": {
+    "blocks": 3,
+    "width": 32,
+    "readout": "avgpool1",
+    "activation": "relu"
+   },
+   "matched_methods": {
+    "graphmae": {
+     "k": 240,
+     "depth": 2,
+     "mask": 0.75
+    },
+    "banksy": {
+     "k": 240,
+     "lambda": 0.4,
+     "max_m": 1,
+     "pca": 20
+    },
+    "utag": {
+     "radius_um": 232.3265075275914,
+     "pca": 10,
+     "normalization": "l1_norm"
+    },
+    "cellcharter": {
+     "graph": "mantpy_k120",
+     "hops": 3
+    }
+   },
+   "default_methods": {
+    "banksy": {
+     "clusterer": "sklearn.KMeans",
+     "k": 5,
+     "kmeans_n_init": "auto",
+     "lambda": 0.2,
+     "max_m": 1,
+     "n_neighbors": 15,
+     "neighbor_weight_decay": "scaled_gaussian",
+     "pca_components": 20,
+     "spatial_graph": "BANKSY fixed-neighbour graph"
+    },
+    "utag": {
+     "clusterer": "sklearn.KMeans",
+     "k": 5,
+     "kmeans_n_init": "auto",
+     "max_dist": 20.0,
+     "normalization_mode": "l1_norm",
+     "pca_components": 10,
+     "spatial_graph": "UTAG radius graph",
+     "spatial_units": "micrometre"
+    },
+    "cellcharter": {
+     "aggregation": "mean",
+     "aggregation_layers": 3,
+     "clusterer": "cellcharter.tl.Cluster",
+     "covariance_type": "full",
+     "device": "cpu",
+     "k": 5,
+     "n_neighbors": 6,
+     "spatial_graph": "Squidpy generic kNN"
+    }
+   },
+   "utag_radii_um": [
+    20.0,
+    85.40492271713616,
+    232.3265075275914,
+    464.6530150551828
+   ]
+  },
+  "intestine2": {
+   "k": 4,
+   "clip": 9252.0,
+   "pixel_threshold": 0.3006693422794342,
+   "patch_threshold": 0.15733705461025238,
+   "expected_nodes": 9449,
+   "joint_id": "HBM735.PSTF.274/cf04748712014",
+   "joint": {
+    "patch_size": 32,
+    "neighbours": 160,
+    "continuity_thresh": 0.25,
+    "cnn_blocks": 3,
+    "cnn_width": 16,
+    "cnn_readout": "avgpool2",
+    "cnn_activation": "relu",
+    "cnn_latent": 96,
+    "cnn_projection": 64,
+    "cnn_temperature": 0.2,
+    "cnn_augment": "default",
+    "cnn_lr": 0.001,
+    "cnn_weight_decay": 1e-05,
+    "cnn_epochs": 200,
+    "cnn_batch": 1024,
+    "cnn_standardize": true,
+    "cnn_window": 1,
+    "edge_distance": "log",
+    "edge_orientation": true,
+    "edge_continuity": false,
+    "edge_use": "gine",
+    "gm_depth": 4,
+    "gm_width": 128,
+    "gm_mask": 0.5,
+    "gm_lr": 0.001,
+    "gm_weight_decay": 0.0001,
+    "gm_updates": 200,
+    "gm_standardize": false
+   },
+   "joint_stability5": 0.827286533465012,
+   "matched_cnn": {
+    "blocks": 3,
+    "width": 32,
+    "readout": "avgpool2",
+    "activation": "relu"
+   },
+   "matched_methods": {
+    "graphmae": {
+     "k": 80,
+     "depth": 2,
+     "mask": 0.75
+    },
+    "banksy": {
+     "k": 160,
+     "lambda": 0.8,
+     "max_m": 1,
+     "pca": 20
+    },
+    "utag": {
+     "radius_um": 336.45637576578406,
+     "pca": 10,
+     "normalization": "l1_norm"
+    },
+    "cellcharter": {
+     "graph": "native_knn6",
+     "hops": 3
+    }
+   },
+   "default_methods": {
+    "banksy": {
+     "clusterer": "sklearn.KMeans",
+     "k": 4,
+     "kmeans_n_init": "auto",
+     "lambda": 0.2,
+     "max_m": 1,
+     "n_neighbors": 15,
+     "neighbor_weight_decay": "scaled_gaussian",
+     "pca_components": 20,
+     "spatial_graph": "BANKSY fixed-neighbour graph"
+    },
+    "utag": {
+     "clusterer": "sklearn.KMeans",
+     "k": 4,
+     "kmeans_n_init": "auto",
+     "max_dist": 20.0,
+     "normalization_mode": "l1_norm",
+     "pca_components": 10,
+     "spatial_graph": "UTAG radius graph",
+     "spatial_units": "micrometre"
+    },
+    "cellcharter": {
+     "aggregation": "mean",
+     "aggregation_layers": 3,
+     "clusterer": "cellcharter.tl.Cluster",
+     "covariance_type": "full",
+     "device": "cpu",
+     "k": 4,
+     "n_neighbors": 6,
+     "spatial_graph": "Squidpy generic kNN"
+    }
+   },
+   "utag_radii_um": [
+    20.0,
+    119.56689180399063,
+    336.45637576578406,
+    672.9127515315681
+   ]
+  }
+ }
+}
