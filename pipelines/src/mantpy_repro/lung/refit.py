@@ -2,16 +2,17 @@
 
 In the main analysis the ECM partition is fitted once on all six ROIs. This control repeats
 the single-ROI hold-out with the partition fitted on the training ROIs only, on every native
-10-pixel tile, for two ways of scaling the markers:
+10 x 10-pixel tile, for two ways of scaling the markers:
 
 ``training_cohort_z``  mean and s.d. of the raw pixels pooled over the training ROIs;
 ``per_roi_z``          each image scaled by its own pixel mean and s.d.
 
 A target definition is fitted on a training set: K-means for two to six signal clusters plus
 background (three seeds), keeping the smallest K within 1e-4 of the best mean silhouette of
-the signal tiles, with every signal cluster holding at least 1% of them in every seed. The
-seed-0 centres then label all six ROIs. In the nested search every inner fold uses the
-definition fitted without the outer and the inner held-out ROI.
+the signal tiles (computed on a seeded sample of at most 5,000 tiles), with every signal
+cluster holding at least 1% of the signal tiles in every seed. The seed-0 centres then label
+all six ROIs. In the nested search every inner fold uses the definition fitted without the
+outer and the inner held-out ROI.
 
 Both scaling arms are corrupted at the same positions on their common foreground (see
 ``corruption.physical_proposal``).
@@ -208,7 +209,7 @@ class Targets:
         return self._realisations[key]
 
 
-# ------------------------------------------------------------------------------------------ tasks
+# Tasks
 def refit_tasks(mice: dict[str, list[str]], roi_folds: int | None = None) -> list[dict]:
     """Every study (or final fit) of the control: scaling arm x held-out ROI x context."""
     folds = outer_folds(mice, "roi")
@@ -218,7 +219,7 @@ def refit_tasks(mice: dict[str, list[str]], roi_folds: int | None = None) -> lis
             for normalization in NORMALIZATIONS for fold in folds for context in CONTEXTS]
 
 
-# ----------------------------------------------------------------------------------------- search
+# Search
 def study_unit(ctx: Context, normalization: str, fold_name: str, context: str):
     folds = outer_folds(ctx.prepared().geometry().mice(), "roi")
     index = [fold["name"] for fold in folds].index(fold_name)
@@ -264,12 +265,12 @@ def run_study(ctx: Context, task: dict, targets: Targets) -> dict[str, np.ndarra
     return ctx.store.compute(unit, fit, label=f"study refit {normalization} {task['fold']} {context}", log=log)
 
 
-# ------------------------------------------------------------------------------------------ final
+# Final fits
 def extra_metrics(result: dict, prior: np.ndarray, n_labels: int, common: np.ndarray) -> dict:
     """Scores on the arm's own foreground and on the common foreground of both arms.
 
-    The prior-adjusted score is the anomaly score minus -log of the training frequency of the
-    observed label; ``label_prior`` scores that frequency alone.
+    The ``label_prior`` score is -log of the training frequency of the observed label; the
+    prior-adjusted score is the anomaly score minus it.
     """
     from sklearn.metrics import balanced_accuracy_score, f1_score
 

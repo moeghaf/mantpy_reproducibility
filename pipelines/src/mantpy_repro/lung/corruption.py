@@ -114,7 +114,7 @@ def make_realisation(cohort, kind: str, seed: int) -> dict[str, Corruption]:
             for i, (name, roi) in enumerate(cohort.rois.items())}
 
 
-# -------------------------------------------------------- paired corruption of the refit control
+# Paired corruption of the refit control
 def physical_proposal(xy: np.ndarray, common: np.ndarray, kind: str, seed: int, roi: str) -> dict:
     """Corrupted positions on the common foreground of the two scaling arms.
 
@@ -123,7 +123,7 @@ def physical_proposal(xy: np.ndarray, common: np.ndarray, kind: str, seed: int, 
     patch already has and the realised corruption can be below 10%.
     """
     if kind not in ("mixed", "block", "isolated"):
-        raise ValueError(kind)
+        raise ValueError(f"unknown corruption kind {kind!r}")
     rng = np.random.default_rng(int(seed) + 100003 * int(roi[-3:]))
     budget = int(round(0.1 * int(common.sum())))
     block_budget = budget if kind == "block" else budget // 2 if kind == "mixed" else 0

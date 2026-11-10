@@ -2,25 +2,30 @@
 
 Three objectives are maximised with NSGA-II (Optuna): seed stability (mean pairwise adjusted Rand
 index between three training seeds, on the anchors), coverage (fraction of the anchors covered at
-the patch size) and K. A configuration is feasible when, in every seed, every cluster has enough
-patches in at least three ROIs. Configurations needing more than 60,000 optimiser steps are not
-fitted. No condition, genotype or mouse label is read.
+the patch size) and K. A configuration meets the spread guard when, in every seed, every cluster
+has enough patches in at least three ROIs. A configuration needing more than 60,000 optimiser steps is
+recorded with a stability of 0 and is not fitted. No condition, genotype or mouse label is read.
 
-The study starts from 25 fixed configurations (the lung selection and 24 scrambled-Sobol points)
-and stops when NSGA-II has proposed 60 new encoders. Invalid proposals and exact repeats are
-discarded. Every fitted encoder is clustered at every K, so a proposal that repeats an encoder at
-another K is scored from the stored labels and is not counted.
+The study starts from 25 fixed configurations (``LUNG_START`` and 24 scrambled-Sobol points) and
+stops when NSGA-II has proposed 60 new encoders. A proposal that is not fitted because of the step
+limit counts as one of the 60. Invalid proposals and exact repeats are discarded. Every fitted
+encoder is clustered at every K, so a proposal that repeats an encoder at another K is scored from
+the stored labels and is not counted.
 
 Any number of workers can run this module at the same time on one results directory. They share
 the Optuna study and never fit the same encoder and seed twice; with several workers the study
-can end a few encoders above the target. A worker that is killed leaves its trial unfinished,
-and the seed fits it completed are reused when that encoder is proposed again.
+can end a few encoders above the target. A worker that is interrupted closes its trial, and the
+seed fits it completed are reused when that encoder is evaluated again; a starting configuration
+it was fitting is queued again by the next run of the search. The selection (``freeze``) needs
+the finished search: the target reached and every starting configuration evaluated.
 """
 
 from __future__ import annotations
 
 import json
 import time
+
+from filelock import FileLock
 
 from ..runtime import release_cuda
 from ..store import read_json, write_json
@@ -29,7 +34,7 @@ from .config import (K_VALUES, LUNG_START, MAX_TRAINING_STEPS, N_SEARCH_ENCODERS
 from .core import Context, log
 
 STUDY_NAME = "liver_stability_coverage_k"
-MAX_NSGA_TRIALS = 1000           # safety limit on proposals; never expected to be reached
+MAX_NSGA_TRIALS = 1000           # limit on NSGA-II proposals, so that a search that finds no new encoder still ends
 MAX_CONSECUTIVE_FAILURES = 3     # stop instead of recording failure after failure (for example a full GPU)
 SMOKE_SOBOL = 2
 SMOKE_ENCODERS = 2
@@ -66,7 +71,7 @@ def open_study(ctx: Context, worker_index: int = 0):
 
 
 def warm_start(n_sobol: int = N_SOBOL) -> dict:
-    """The fixed starting configurations: the lung selection, then scrambled-Sobol points over the 15 settings.
+    """The fixed starting configurations: ``LUNG_START``, then scrambled-Sobol points over the 15 settings.
 
     Each Sobol point picks one value per setting; invalid points and repeats are drawn again.
     """
@@ -98,6 +103,34 @@ def _warm_design(ctx: Context) -> dict:
     if not path.exists():
         write_json(path, warm_start(SMOKE_SOBOL if ctx.smoke else N_SOBOL))
     return read_json(path)
+
+
+def _queue_starting_configurations(ctx: Context, study) -> None:
+    """Queue every starting configuration that the study has neither finished nor in progress.
+
+    Workers do this one at a time, so workers that start together queue each configuration once.
+    A configuration whose earlier trial failed is queued again.
+    """
+    from optuna.trial import TrialState
+
+    folder = ctx.store.root / "search"
+    folder.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(folder / "warm_start.lock")):
+        present = {t.user_attrs.get("config_id") for t in study.get_trials(deepcopy=False)
+                   if t.state in (TrialState.COMPLETE, TrialState.WAITING, TrialState.RUNNING)}
+        for item in _warm_design(ctx)["configs"]:
+            if item["config_id"] not in present:
+                study.enqueue_trial({axis: json.dumps(item["config"][axis]) for axis in SPACE},
+                                    user_attrs={"config_id": item["config_id"], "source": item["source"]})
+
+
+def unfinished_starts(ctx: Context, study) -> list[str]:
+    """IDs of the starting configurations that have neither a finished trial nor a recorded failed fit."""
+    from optuna.trial import TrialState
+
+    settled = {t.user_attrs.get("config_id") for t in study.get_trials(deepcopy=False)
+               if t.state == TrialState.COMPLETE or "error" in t.user_attrs}
+    return [item["config_id"] for item in _warm_design(ctx)["configs"] if item["config_id"] not in settled]
 
 
 def _counts(study) -> tuple[int, int, int]:
@@ -150,21 +183,22 @@ def evaluate(ctx: Context, study, trial, config: dict) -> str:
     return "ok"
 
 
-def run_search(ctx: Context, n_encoders: int | None = None, *, worker_index: int = 0,
-               time_limit_hours: float | None = None) -> None:
-    """Evaluate the warm start, then NSGA-II proposals until the study holds ``n_encoders`` new encoders.
+def target_encoders(ctx: Context, n_encoders: int | None = None) -> int:
+    """New encoders that end the search: the 60 of the paper's runs by default (2 for ``--smoke``)."""
+    return n_encoders or (SMOKE_ENCODERS if ctx.smoke else N_SEARCH_ENCODERS)
 
-    ``n_encoders`` defaults to the paper's 60 (2 for ``--smoke``).
+
+def run_search(ctx: Context, n_encoders: int | None = None, *, worker_index: int = 0,
+               time_limit_hours: float | None = None) -> bool:
+    """Evaluate the starting configurations, then NSGA-II proposals until ``n_encoders`` of them are new encoders.
+
+    Returns ``False`` when the time limit stopped the search before that.
     """
     from optuna.trial import TrialState
 
-    n_encoders = n_encoders or (SMOKE_ENCODERS if ctx.smoke else N_SEARCH_ENCODERS)
+    n_encoders = target_encoders(ctx, n_encoders)
     study, distributions = open_study(ctx, worker_index), _distributions()
-    present = {t.user_attrs.get("config_id") for t in study.trials}
-    for item in _warm_design(ctx)["configs"]:
-        if item["config_id"] not in present:
-            study.enqueue_trial({axis: json.dumps(item["config"][axis]) for axis in SPACE},
-                                user_attrs={"config_id": item["config_id"], "source": item["source"]}, skip_if_exists=True)
+    _queue_starting_configurations(ctx, study)
     deadline = None if time_limit_hours is None else time.time() + 3600 * time_limit_hours
     log(f"search: study has {_counts(study)[0]} new encoders, target {n_encoders}")
     failures = 0
@@ -172,28 +206,15 @@ def run_search(ctx: Context, n_encoders: int | None = None, *, worker_index: int
         finished, waiting, proposed = _counts(study)
         if (finished >= n_encoders or proposed >= MAX_NSGA_TRIALS) and not waiting:
             break
-        if deadline is not None and time.time() > deadline:
+        if deadline is not None and time.time() >= deadline:
             log("search: time limit reached; rerun the same command to continue")
-            return
+            return False
         trial = study.ask(distributions)
-        source = trial.user_attrs.get("source", "nsga2")
-        trial.set_user_attr("source", source)
-        sampled = {axis: json.loads(trial.params[axis]) for axis in SPACE}
         try:
-            config = validate(sampled)
-        except (KeyError, ValueError) as error:      # invalid proposals are rejected, never adapted
-            trial.set_user_attr("rejected_invalid", str(error))
-            study.tell(trial, state=TrialState.PRUNED)
-            continue
-        if source == "nsga2":
-            repeats = [t for t in study.get_trials(deepcopy=False) if t.number != trial.number
-                       and t.user_attrs.get("config_id") == config_id(config) and t.state in (TrialState.COMPLETE, TrialState.RUNNING)]
-            if repeats:
-                trial.set_user_attr("config_id", config_id(config))
-                trial.set_user_attr("duplicate_of", repeats[0].number)
-                study.tell(trial, state=TrialState.PRUNED)
-                continue
-        state = evaluate(ctx, study, trial, config)
+            state = _run_trial(ctx, study, trial)
+        except BaseException:      # an interrupted trial is closed, so a starting configuration is queued again
+            study.tell(trial, state=TrialState.FAIL, skip_if_finished=True)
+            raise
         if state == "fail":
             failures += 1
         elif state == "ok":
@@ -201,7 +222,35 @@ def run_search(ctx: Context, n_encoders: int | None = None, *, worker_index: int
         if failures >= MAX_CONSECUTIVE_FAILURES:
             raise RuntimeError(f"{failures} configurations failed in a row; see the log above. "
                                "Rerun the same command to continue once the cause is fixed.")
-    log(f"search complete: {_counts(study)[0]} new encoders")
+    if finished < n_encoders:
+        log(f"search ended at the limit of {MAX_NSGA_TRIALS} NSGA-II proposals: {finished} of {n_encoders} new encoders")
+    else:
+        log(f"search complete: {_counts(study)[0]} new encoders")
+    return True
+
+
+def _run_trial(ctx: Context, study, trial) -> str:
+    """Validate and evaluate one asked trial. Returns the result of :func:`evaluate` or ``"pruned"``."""
+    from optuna.trial import TrialState
+
+    source = trial.user_attrs.get("source", "nsga2")
+    trial.set_user_attr("source", source)
+    sampled = {axis: json.loads(trial.params[axis]) for axis in SPACE}
+    try:
+        config = validate(sampled)
+    except (KeyError, ValueError) as error:      # invalid proposals are rejected, never adapted
+        trial.set_user_attr("rejected_invalid", str(error))
+        study.tell(trial, state=TrialState.PRUNED)
+        return "pruned"
+    if source == "nsga2":
+        repeats = [t for t in study.get_trials(deepcopy=False) if t.number != trial.number
+                   and t.user_attrs.get("config_id") == config_id(config) and t.state in (TrialState.COMPLETE, TrialState.RUNNING)]
+        if repeats:
+            trial.set_user_attr("config_id", config_id(config))
+            trial.set_user_attr("duplicate_of", repeats[0].number)
+            study.tell(trial, state=TrialState.PRUNED)
+            return "pruned"
+    return evaluate(ctx, study, trial, config)
 
 
 def trial_table(study):
@@ -222,7 +271,7 @@ def trial_table(study):
 
 
 def evaluated_encoders(study) -> dict[str, dict]:
-    """Encoder ID -> configuration (with the K of its first trial) of every encoder fitted by the search."""
+    """Maps each encoder ID to its configuration (with the K of its first trial), for every encoder fitted by the search."""
     from optuna.trial import TrialState
 
     encoders = {}

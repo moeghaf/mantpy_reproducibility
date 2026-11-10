@@ -16,7 +16,7 @@ ROIS = [f"roi_{i:03d}" for i in range(1, 7)]
 PATCH = 10
 
 
-# ------------------------------------------------------------------------------- synthetic data
+# Synthetic data
 def toy_roi(n: int = 6, n_cells: int = 40, seed: int = 0, name: str = "roi_001", mouse: str = "mouse_01"):
     """An n x n patch grid with random cells; the first patch is background."""
     rng = np.random.default_rng(seed)
@@ -80,7 +80,7 @@ def synthetic_bundle(size: int = 160, seed: int = 0):
                            ecm_names=["m0", "m1", "m2"])
 
 
-# ------------------------------------------------------------------------------ configurations
+# Configurations
 def test_paper_configurations_round_trip_and_reference_graph():
     selected = C.paper_selection()
     saved = [entry for scheme in C.SCHEMES for contexts in selected[scheme].values() for entry in contexts.values()]
@@ -134,9 +134,10 @@ def test_folds_seeds_and_task_counts():
     assert len(final_tasks(mice)) == 8 + 24 + 36
 
 
-# -------------------------------------------------------------------------------------- search
+# Search
 def test_search_space_sampling_and_selection_rule():
-    optuna = pytest.importorskip("optuna")
+    import optuna
+
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     for context in C.CONTEXTS:
         sampler = optuna.samplers.TPESampler(multivariate=True, group=True, n_startup_trials=12, seed=1036)
@@ -169,7 +170,7 @@ def test_edge_rules_are_the_papers():
             entry["ce_rule"], entry["ce_k"], entry["ce_dmax_px"], entry["ee_include_background_nodes"])
 
 
-# -------------------------------------------------------------------------------------- graphs
+# Graphs
 def test_graph_rules_and_weights():
     roi = toy_roi(5, n_cells=20)
     g = graphs.build_graphs(roi.cell_xy, roi.patch_xy, roi.background, PATCH, C.GraphRecipe())
@@ -187,7 +188,7 @@ def test_graph_rules_and_weights():
         assert w.ee_w.nnz == w.ee_d.nnz and np.isfinite(w.ce_w.data).all() and (w.ce_w.data > 0).all()
 
 
-# ------------------------------------------------------------------------------------ features
+# Features
 def test_composition_features_by_hand():
     # Three patches in a row; cells 0 and 1 touch patch 0, cell 2 touches patch 1, cell 3 touches none.
     patch_xy = np.array([[5.0, 5.0], [15.0, 5.0], [25.0, 5.0]])
@@ -216,7 +217,7 @@ def test_a_patch_never_sees_its_own_label(hops):
         assert np.allclose(before[patch], after[patch])
 
 
-# ---------------------------------------------------------------------------------- corruption
+# Corruption
 def test_corruption_budget_blocks_and_seed():
     roi = toy_roi(30, n_cells=10)
     signal = roi.label >= 0
@@ -249,7 +250,7 @@ def test_paired_corruption_shares_positions_between_partitions():
     assert first.is_artifact.sum() <= proposal["proposed_nodes"]          # a block may propose the label already there
 
 
-# ------------------------------------------------------------------------------------ cleaning
+# Cleaning
 def test_cleaning_rule_threshold_confidence_and_gate():
     n = 9
     xy = np.c_[np.arange(n) * 10.0, np.zeros(n)]
@@ -302,7 +303,7 @@ def test_cell_context_recovers_corrupted_labels_and_the_prior_never_relabels():
     assert 0.9 < search.inner_accuracy(config, cohort, ROIS[:3], cache, realisations) <= 1.0
 
 
-# --------------------------------------------------------------------------------- association
+# Association
 def test_association_matches_direct_edge_counts():
     cohort = structured_cohort(n_cells=80)
     cache = graphs.GraphCache()
@@ -331,7 +332,7 @@ def test_association_matches_direct_edge_counts():
         roi.patch_feat[wall & touched].mean(0) - roi.patch_feat[wall & ~touched].mean(0))
 
 
-# -------------------------------------------------------------------------------- refit control
+# Refit control
 def test_target_definition_selects_k_and_orders_clusters():
     rng = np.random.default_rng(0)
     centres = np.array([[0.2, 0.2], [3.0, 0.5], [0.5, 6.0]])               # background and two signal clusters
@@ -356,7 +357,7 @@ def test_target_definition_selects_k_and_orders_clusters():
     assert refit.train_key(["roi_003", "roi_001"]) == "train_001_003"
 
 
-# --------------------------------------------------------------------------------------- store
+# Store
 def test_tables_with_undefined_scores_survive_the_store(tmp_path):
     import pandas as pd
 
@@ -386,7 +387,7 @@ def test_smoke_and_full_results_cannot_mix(tmp_path):
     assert Budget.of(True).trials == {"mouse": 3, "roi": 3, "refit": 3}
 
 
-# ----------------------------------------------------------------------------- paper partition
+# Paper partition
 def paper_like_prepared(seed: int = 0) -> data.Prepared:
     """The stored arrays of a ``prepare`` run whose tiles are the paper's 69 x 66 grid, with the
     paper's partition as the fresh one, the paper's component scan, random marker values and no cells."""
@@ -449,7 +450,7 @@ def test_corruption_generator_reproduces_the_example_of_fig_4h(tmp_path):
     assert profiles.sum() == 30 and table[~profiles].within_tolerance.all() and len(table) == 4 + 41 + 18
 
 
-# -------------------------------------------------------------------------------------- report
+# Report
 def _minus_inf(value):
     return -np.inf if value is None else value
 
@@ -505,6 +506,12 @@ def test_report_accepts_the_papers_numbers_and_flags_a_shifted_one():
     outside = flagged[~flagged.within_tolerance]
     assert set(outside.quantity) == {"roc_auc, cell context, roi_005", "roc_auc, cell context, min over ROIs"}
 
+    rows = report.Comparison()                                             # one ROI of the mouse scheme is not finished
+    report.compare_denoising(rows, scores, per_roi[per_roi.roi != "roi_006"], recovery, refitted, reference)
+    partial = rows.table()
+    assert "detection, mouse held out" not in set(partial.section)
+    assert (partial.section == "numbers in the text").sum() == 3 + 2       # per-cluster correction and the refit control
+
     rows = report.Comparison()
     rows.add("s", "count", 11450, 11435, exact=True)
     rows.add("s", "rounded in the text", 0.7049, 0.70, rounding=0.005)
@@ -512,9 +519,38 @@ def test_report_accepts_the_papers_numbers_and_flags_a_shifted_one():
     assert rows.table().within_tolerance.tolist() == [False, True, True]
 
 
-# ------------------------------------------------------------------------------- whole pipeline
+def test_refit_arm_is_compared_only_when_every_roi_is_finished():
+    import pandas as pd
+
+    reference = report.paper_reference()
+    summary = pd.DataFrame(reference["refit_control"])
+    per_roi = pd.DataFrame([{"normalization": e["normalization"], "context": e["context"], "kind": e["kind"],
+                             "outer_roi": name} for e in reference["refit_control"] for name in ROIS])
+    rows = report.Comparison()
+    report.compare_refit(rows, summary, per_roi, reference)
+    complete = rows.table()
+    arm = complete.quantity.str.contains("cell context, .* corruption, per_roi_z")
+    assert complete.within_tolerance.all() and arm.any()
+    unfinished = (per_roi.normalization == "per_roi_z") & (per_roi.context == "cell") & (per_roi.outer_roi == "roi_006")
+    rows = report.Comparison()
+    report.compare_refit(rows, summary, per_roi[~unfinished], reference)
+    assert rows.table().quantity.tolist() == complete.quantity[~arm].tolist()
+
+
+# Command line
+def test_workers_run_the_same_command_on_separate_slices_of_the_tasks(monkeypatch):
+    from mantpy_repro.lung import cli
+
+    started = []
+    monkeypatch.setattr(cli, "run_workers", lambda commands: started.extend(commands) or 0)
+    assert cli.main(["final", "--workers", "2", "--results", "r", "--smoke"]) == 0
+    assert [command[3:] for command in started] == [
+        ["final", "--results", "r", "--smoke", "--workers", "1", "--worker-slice", f"{part}/2"] for part in (0, 1)]
+    assert cli._chosen([0, 1, 2, 3, 4], None, 1, 2, "final") == [1, 3]
+
+
+# Whole pipeline
 def test_every_stage_runs_and_resumes_on_synthetic_rois(tmp_path, monkeypatch, capsys):
-    pytest.importorskip("optuna")
     from mantpy_repro.lung import cli
 
     monkeypatch.setattr(data, "load_bundle", lambda cache_dir=None: synthetic_bundle())
@@ -541,9 +577,21 @@ def test_every_stage_runs_and_resumes_on_synthetic_rois(tmp_path, monkeypatch, c
     assert stamps == {path: (tmp_path / path).stat().st_mtime_ns for path in done}
     with pytest.raises(RuntimeError):
         cli.main(["final", "--results", str(tmp_path), "--partition", "fresh"])                # full run in a smoke directory
+    with pytest.raises(SystemExit, match="--workers applies"):
+        cli.main(["all", *arguments, "--workers", "2"])
+    with pytest.raises(SystemExit, match=r"outside the range of the 'final' stage \(0 to 17;"):
+        cli.main(["final", *arguments, "--selection", "search", "--task-index", "18"])
+    with pytest.raises(SystemExit, match="--task-index applies"):
+        cli.main(["report", *arguments, "--task-index", "0"])
+    (tmp_path / "final" / "fresh" / "search" / "mouse" / "mouse_01" / "cell" / "completion.json").unlink()
+    capsys.readouterr()
+    assert cli.main(["report", *arguments, "--selection", "search"]) == 1  # the report is written and names the missing fit
+    assert "not finished: final mouse mouse_01 cell" in capsys.readouterr().out
+    assert cli.main(["final", *arguments, "--selection", "search", "--task-index", "0"]) == 0   # task 0 is the missing fit
+    assert cli.main(["report", *arguments, "--selection", "search"]) == 0
 
 
-# --------------------------------------------------------------- against the paper (real data)
+# Against the paper (real data)
 @pytest.mark.gpu
 def test_mouse_held_out_cell_context_reproduces_the_paper(tmp_path):
     """Refits the two mouse folds of the cell context on the lung dataset (CPU, about a minute)."""

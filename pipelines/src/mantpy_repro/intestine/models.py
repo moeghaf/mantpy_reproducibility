@@ -3,6 +3,10 @@
 Training goes through Mantpy's public API (``mt.nn.PatchEncoder``, ``mt.gr.build_patch_graph``,
 ``mt.nn.encode_graphmae``). This module only supplies the searched variants of the CNN and of
 the edge features, which Mantpy accepts as a custom backbone and as graph attributes.
+
+One exception: the edge-continuity feature calls the private function
+``mantpy.gr._edge_continuity``, which a later Mantpy version may change. Only search
+configurations with ``edge_continuity`` switched on use it; the selected configurations do not.
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ from ..runtime import calculation_threads, release_cuda, seed_everything
 KMEANS = {"init": "k-means++", "n_init": 10, "max_iter": 300, "tol": 1e-4, "random_state": 0, "algorithm": "lloyd"}
 
 
-# ------------------------------------------------------------------------------------------- CNN
+# CNN
 def _conv_encoder(*, in_size, in_channels, latent_dim, blocks, width, readout, activation):
     """Stride-2 convolution blocks, a readout, then a linear layer (layer order as in the paper)."""
     from torch import nn
@@ -71,11 +75,14 @@ def fit_cnn(windows: np.ndarray, config: dict, seed: int, device: str, init: str
 
     ``init`` selects which random starting weights the seed gives:
 
-    - ``"once"`` creates the network a single time (Mantpy's normal behaviour);
+    - ``"once"`` creates the network a single time, as ``mt.nn.encode_patches`` does;
     - ``"rebuilt"`` first creates and discards a default network and projection head, as the
-      original search code did, so the real network takes the next random numbers.
+      paper's search code did, so the real network takes the next random numbers.
 
-    Both are fresh random starts; the option only exists to match the paper's runs exactly.
+    Both are random starts of the same kind. The option exists so that each fit can start from
+    the weights of the paper's run. Training always passes ``exhaust_sampler=True``, as the
+    paper's runs did. Mantpy's default is ``False``; the two give different features only when
+    the number of patches is a multiple of the batch size.
     """
     import mantpy as mt
     from sklearn.preprocessing import StandardScaler
@@ -113,7 +120,7 @@ def fit_cnn(windows: np.ndarray, config: dict, seed: int, device: str, init: str
     return features, {"losses": losses, "optimizer_updates": int(encoder.optimizer_updates), "init": init}
 
 
-# ----------------------------------------------------------------------------------------- graph
+# Graph
 def build_graph(data, config: dict) -> int:
     """Build the ECM patch graph of ``config`` in ``data.uns['patch']``; return the directed edge count.
 
@@ -136,7 +143,7 @@ def build_graph(data, config: dict) -> int:
     columns, names = [], []
     kind = config["edge_distance"]
     if kind == "log":
-        columns.append(np.log(distance)); names.append("log_distance")
+        columns.append(np.log(distance)); names.append("log_euclidean_distance")
     elif kind == "raw":
         columns.append(distance); names.append("distance")
     elif kind == "inverse":
@@ -183,7 +190,7 @@ def apply_control(data, control: str, seed: int) -> None:
     graph["edge_index"], graph["edge_attr"] = edges, attributes
 
 
-# -------------------------------------------------------------------------------------- GraphMAE
+# GraphMAE
 def fit_graphmae(data, config: dict, seed: int, device: str, encoder: str | None = None) -> tuple[np.ndarray, dict]:
     """Train GraphMAE on ``data.uns['patch']`` with features ``data.obsm['X_cnn']``; return the embedding."""
     import mantpy as mt
@@ -208,7 +215,11 @@ def fit_graphmae(data, config: dict, seed: int, device: str, encoder: str | None
 
 
 def cluster(matrix: np.ndarray, k: int, *, random_state: int = 0, threads: int = 2) -> np.ndarray:
-    """K-means with the paper's settings (ten initialisations)."""
+    """K-means with the paper's settings (ten initialisations).
+
+    The K-means seed is 0 for every training seed, as in the paper's runs. Only the K sweep
+    seeds K-means with the training seed.
+    """
     from sklearn.cluster import KMeans
 
     with calculation_threads(threads):

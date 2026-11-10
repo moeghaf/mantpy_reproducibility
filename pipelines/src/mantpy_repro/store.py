@@ -5,6 +5,8 @@ A folder is complete only when ``completion.json`` exists; it is written last, a
 the arrays, so an interrupted job leaves no half-finished result that looks complete.
 A lock file stops two workers from fitting the same unit at the same time, which
 makes the pipeline safe to run as many cluster jobs sharing one results directory.
+The lock is an advisory file lock (``flock``), so the results directory must be on a
+file system where such locks hold across the nodes that share it.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import socket
 import time
 from typing import Any, Callable
 
-from filelock import FileLock
+from filelock import FileLock, Timeout
 import numpy as np
 
 
@@ -58,6 +60,29 @@ def read_json(path: Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def claim_mode(root: Path, smoke: bool) -> None:
+    """Mark ``root`` as holding full or ``--smoke`` results and refuse to mix the two.
+
+    The marker file ``MODE`` is created once, so processes that start together never rewrite it.
+    """
+    mode = Path(root) / "MODE"
+    expected = "smoke" if smoke else "full"
+    try:
+        with mode.open("x") as stream:
+            stream.write(expected)
+    except FileExistsError:
+        pass
+    found = mode.read_text().strip()
+    for _ in range(20):                    # another process may be between create and write
+        if found:
+            break
+        time.sleep(0.1)
+        found = mode.read_text().strip()
+    if found != expected:
+        raise RuntimeError(f"{root} holds {found or 'unknown'} results; "
+                           f"use another --results directory for a {expected} run.")
+
+
 class Unit:
     """One resumable unit of work stored in ``folder``."""
 
@@ -72,7 +97,11 @@ class Unit:
     def done(self) -> bool:
         if not self.marker.exists():
             return False
-        saved = read_json(self.marker)["request"]
+        try:
+            saved = read_json(self.marker)["request"]
+        except (ValueError, KeyError) as error:
+            raise RuntimeError(f"{self.marker} cannot be read ({error!r}). Delete {self.folder} "
+                               "and run the stage again.") from error
         if canonical(saved) != canonical(self.request):
             raise RuntimeError(
                 f"{self.folder} holds a result for different settings. Use a new --results directory "
@@ -101,10 +130,20 @@ class Unit:
         return {name: np.asarray(value) for name, value in arrays.items()}
 
     @contextmanager
-    def lock(self, timeout: float = -1):
+    def lock(self, waiting: Callable[[], None] | None = None):
+        """Hold the unit's lock file; ``waiting`` is called once if another process holds it."""
         self.folder.mkdir(parents=True, exist_ok=True)
-        with FileLock(str(self.folder / ".lock"), timeout=timeout):
+        lock = FileLock(str(self.folder / ".lock"))
+        try:
+            lock.acquire(timeout=0)
+        except Timeout:
+            if waiting is not None:
+                waiting()
+            lock.acquire()
+        try:
             yield
+        finally:
+            lock.release()
 
 
 class Store:
@@ -137,7 +176,7 @@ class Store:
         arrays = ready()
         if arrays is not None:
             return arrays
-        with unit.lock():
+        with unit.lock(waiting=lambda: log(f"wait  {label}  (another process is fitting it)")):
             arrays = ready()         # another worker may have finished it while we waited
             if arrays is not None:
                 return arrays

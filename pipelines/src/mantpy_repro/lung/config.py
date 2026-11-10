@@ -2,8 +2,8 @@
 
 A configuration of the denoising task has four parts: the graph rules, the context features,
 the logistic regression and the cleaning rule. ``Config.to_dict`` writes them in the layout of
-the paper's records, so a configuration read from ``paper_selection.json`` is written back
-unchanged and its identity can be compared with the records.
+``paper_selection.json``, so a configuration read from that file is written back unchanged
+and keeps its identity.
 """
 
 from __future__ import annotations
@@ -171,7 +171,7 @@ class Config:
         _check("calibration", self.calibration, CALIBRATIONS)
 
     def to_dict(self) -> dict[str, Any]:
-        """The configuration in the layout of the paper's records."""
+        """The configuration in the layout of ``paper_selection.json``."""
         return {
             "task": "forward", "context": self.context, "graph": self.graph.to_dict(),
             "features": {"composition_norm": self.features.composition_norm, "hops": self.features.hops,
@@ -184,10 +184,10 @@ class Config:
 
     @classmethod
     def from_dict(cls, record: dict[str, Any]) -> "Config":
-        """Read a configuration from the paper's records.
+        """Read a configuration in the layout of ``paper_selection.json``.
 
         The paper's denoising task predicts ECM labels (``forward``) with logistic regression
-        and without neighbouring marker intensities; records of anything else are rejected.
+        and without neighbouring marker intensities; a record of anything else is rejected.
         """
         features, learner = dict(record["features"]), dict(record["learner"])
         fixed = {"task": record.get("task", "forward") == "forward",
@@ -214,7 +214,7 @@ def config_id(config: Config) -> str:
     return "c" + hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
-# ------------------------------------------------------------------------------------------ folds
+# Folds
 def outer_folds(mice: dict[str, list[str]], scheme: str) -> list[dict]:
     """Outer folds as ``{name, test, train}``; ``mice`` maps each mouse to its ROIs in cohort order."""
     rois = [roi for group in mice.values() for roi in group]
@@ -231,13 +231,13 @@ def inner_folds(train: list[str]) -> list[dict]:
     return [{"name": roi, "test": [roi], "train": [other for other in train if other != roi]} for roi in train]
 
 
-# ---------------------------------------------------------------------------------- sampler seeds
+# Sampler seeds
 def sampler_seed(scheme: str, fold_index: int, context: str) -> int:
     """Seed of the Optuna sampler of one study, equal to the seed of the paper's run.
 
-    The paper's driver numbered its studies in one sequence that also contained analyses not
-    reported in the paper, which leaves gaps: single-ROI studies used 1000 + 6 x fold + context,
-    mouse studies 1036 + 6 x fold + context. The refit control used 2000 + 3 x fold + context.
+    Single-ROI studies use 1000 + 6 x fold + context, mouse studies 1036 + 6 x fold + context
+    and the refit control 2000 + 3 x fold + context. The seeds of the first two are not
+    consecutive.
     """
     offset = CONTEXTS.index(context)
     if scheme == "roi":
@@ -246,7 +246,7 @@ def sampler_seed(scheme: str, fold_index: int, context: str) -> int:
         return 1036 + 6 * fold_index + offset
     if scheme == "refit":
         return 2000 + 3 * fold_index + offset
-    raise ValueError(scheme)
+    raise ValueError(f"unknown scheme {scheme!r}")
 
 
 def startup_trials(scheme: str, n_trials: int) -> int:

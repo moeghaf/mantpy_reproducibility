@@ -1,6 +1,6 @@
-"""Collect the finished fits, compute the descriptive statistics and compare every number with the paper.
+"""Collect the finished fits, compute the descriptive statistics and compare them with the paper's numbers.
 
-Nothing is fitted here. Analyses whose fits are not finished are left out and named in the output.
+No model is trained here. Analyses whose fits are not finished are left out and named in the output.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from .classify import allocations, genotype_preserving, mouse_labels, permutatio
 from .config import (ANCHOR_SIZE, CLASSIFIER_SEEDS, FREEZE_SEEDS, GROUPS, K_VALUES, MARKERS, PATCH_SIZES, SEARCH_SEEDS, config_id,
                      paper_partition, paper_reference)
 from .core import Context, Partition, log
-from .final import OBSERVED_ALLOCATION, resolve_partition
+from .final import OBSERVED_ALLOCATION, final_tasks, resolve_partition, task_ranges
 from .freeze import selected_config
 from .tune import tuned_parts, tuned_record
 
@@ -22,6 +22,7 @@ from .tune import tuned_parts, tuned_record
 TOLERANCE = {
     "count": 0.0,             # integers and P values (compared as counts)
     "patches": 100.0,         # ECM signal patches of a recomputed background split (it changes with library versions)
+    "anchors": 4000.0,        # 5-pixel signal patches of that split (up to 1% change with threads and platform)
     "coverage": 0.005,        # coverage of a patch size, from the recomputed background split
     "descriptive": 1e-4,      # deterministic given the partition: bounds, fractions, co-occurrence, subgraphs
     "regression": 0.005,      # logistic-regression probabilities
@@ -32,7 +33,7 @@ TOLERANCE = {
 
 
 class Comparison:
-    """Rows of "this run beside the paper"."""
+    """Collects the rows of the comparison table: this run's value, the paper's value, the difference and the tolerance."""
 
     def __init__(self):
         self.rows = []
@@ -104,8 +105,9 @@ def _ensemble(seeds):
     return roi, mouse
 
 
-# ---------------------------------------------------------------------------------------- encoder
-def encoder_report(ctx: Context, config: dict, source: str, out: Path, compare: Comparison | None) -> None:
+# Encoder
+def encoder_report(ctx: Context, config: dict, source: str, out: Path, compare: Comparison | None) -> list[str]:
+    """Seed stability of the selected encoder. Returns ``["encoder"]`` unless all five seeds are finished."""
     import pandas as pd
     from sklearn.metrics import adjusted_rand_score
 
@@ -132,9 +134,10 @@ def encoder_report(ctx: Context, config: dict, source: str, out: Path, compare: 
         print(f"Same-seed refit of the partition: adjusted Rand index {ari:.4f}")
         if compare:
             compare.add("same-seed refit of the partition, ARI", ari, reference["refit_ari_record"], "stability")
+    return [] if len(done) == len(FREEZE_SEEDS) else ["encoder"]
 
 
-# ------------------------------------------------------------------------------------ descriptive
+# Descriptive
 def descriptive_report(ctx: Context, partition: Partition, out: Path, compare: Comparison | None) -> int:
     """Composition, infection-associated cluster, co-occurrence and subgraphs. Returns that cluster."""
     nodes, k, reference = partition.nodes, partition.k, paper_reference()
@@ -156,12 +159,15 @@ def descriptive_report(ctx: Context, partition: Partition, out: Path, compare: C
                                              median_mean_degree=("mean_degree", "median"))
     print(f"\nPartition '{partition.name}': {partition.n_signal:,} ECM signal patches, {k} clusters, "
           f"sizes {profiles.n_patches.tolist()}")
+    if not any(chosen["present_in_every_infected_mouse"].values()):
+        print("No cluster makes up at least 1% of the ECM patches of every infected mouse, so the ratio rule does not apply; "
+              "the cluster with the largest infected - naive difference is taken.")
     print(f"Infection-associated cluster: ECM {cluster}; mean mouse fraction by group:")
     print((100 * by_group[cluster]).round(3).rename("percent").to_string())
     top = pairs.reindex(pairs.ko_minus_wt.abs().sort_values(ascending=False).index).head(4)
     print("Largest KO - WT co-occurrence differences (log2 units):")
     print(top[["cluster_a", "cluster_b", "ko_minus_wt"]].round(3).to_string(index=False))
-    print(f"ECM {cluster} subgraphs per infected mouse:")
+    print(f"ECM {cluster} subgraphs per mouse:")
     print(per_mouse.round(2).to_string())
     if compare is None:
         return cluster
@@ -190,9 +196,10 @@ def descriptive_report(ctx: Context, partition: Partition, out: Path, compare: C
     return cluster
 
 
-# ------------------------------------------------------------------------------------- classifier
+# Classifier
 def classifier_report(ctx: Context, partition: Partition, selection: str, cluster: int, out: Path,
-                      compare: Comparison | None) -> None:
+                      compare: Comparison | None) -> list[str]:
+    """Scores of the classifiers and the permutation test. Returns the kinds of task whose fits are not finished."""
     import pandas as pd
 
     table = ctx.roi_table()
@@ -307,13 +314,16 @@ def classifier_report(ctx: Context, partition: Partition, selection: str, cluste
         summary.to_csv(out / "classifier_summary.csv", index=False)
         print("\nHeld-out mouse classification (probability cut-off 0.5)")
         print(summary.round(4).to_string(index=False))
-    permutation_report(ctx, partition, out, compare)
-    if missing:
-        print(f"\nNot finished, so not reported: {', '.join(missing)}.")
+    if not permutation_report(ctx, partition, out, compare):
+        missing.append("permutation")
+    return missing
 
 
-def permutation_report(ctx: Context, partition: Partition, out: Path, compare: Comparison | None) -> None:
-    """Mouse-level ROC-AUC of the five-seed ensemble under every relabelling, and the exact P values."""
+def permutation_report(ctx: Context, partition: Partition, out: Path, compare: Comparison | None) -> bool:
+    """Mouse-level ROC-AUC of the five-seed ensemble under every allocation, and the exact P values.
+
+    Returns whether every ``permutation`` task is finished (two allocations in a smoke run).
+    """
     import pandas as pd
 
     table, labels = ctx.roi_table(), mouse_labels(ctx)
@@ -329,14 +339,16 @@ def permutation_report(ctx: Context, partition: Partition, out: Path, compare: C
         rows.append({"allocation": index, "infected_mice": "|".join(allocation), "observed": index == OBSERVED_ALLOCATION,
                      "genotype_preserving": genotype_preserving(allocation, genotype), "auc": result["auc"],
                      "mice_correct": result["correct"]})
+    expected = {task["allocation"] for task in final_tasks(ctx.smoke) if task["kind"] == "permutation"}
+    complete = expected <= {row["allocation"] for row in rows}
     if not rows:
-        return
+        return complete
     result = pd.DataFrame(rows)
     result.to_csv(out / "permutation_allocations.csv", index=False)
     total = len(allocations(list(labels)))
     if len(result) < total:
         print(f"\nPermutation test: {len(result)} of {total} labellings finished; P values need all of them.")
-        return
+        return complete
     p = permutation_p(result.auc.to_numpy(), OBSERVED_ALLOCATION, result.genotype_preserving.to_numpy())
     print(f"\nPermutation test: observed ROC-AUC {p['observed_auc']:.2f}; P = {p['n_at_or_above_observed']}/{p['n_allocations']} "
           f"over all labellings and {p['n_genotype_at_or_above_observed']}/{p['n_genotype_allocations']} keeping two infected "
@@ -347,11 +359,15 @@ def permutation_report(ctx: Context, partition: Partition, out: Path, compare: C
                     paper["n_at_or_above_observed"], "count")
         compare.add("permutation test, genotype-preserving labellings at or above", p["n_genotype_at_or_above_observed"],
                     paper["n_genotype_at_or_above_observed"], "count")
+    return complete
 
 
-# ----------------------------------------------------------------------------------------- report
-def write_report(ctx: Context, selection: str = "paper", partition: str | None = None) -> Path:
-    """Write all tables and the comparison with the paper; return the report folder."""
+# Report
+def write_report(ctx: Context, selection: str = "paper", partition: str | None = None) -> list[str]:
+    """Write all tables and the comparison with the paper.
+
+    Returns the kinds of task (as listed by ``mantpy-liver tasks``) whose fits are not finished.
+    """
     import pandas as pd
 
     out = ctx.store.root / "report"
@@ -359,8 +375,10 @@ def write_report(ctx: Context, selection: str = "paper", partition: str | None =
     config, source = selected_config(ctx, selection), ctx.signal_source(selection)
     same_settings = config_id(config) == paper_reference()["config_id"] and not ctx.smoke
     compare = Comparison() if same_settings else None
-    if not same_settings:
-        log(f"selected configuration {config_id(config)}{' (smoke run)' if ctx.smoke else ''} differs from the paper's; "
+    if ctx.smoke:
+        log("smoke run: results are not compared with the paper")
+    elif not same_settings:
+        log(f"selected configuration {config_id(config)} differs from the paper's; "
             "results are reported without a paper comparison")
     print(f"Selected: {config['patch_size']}-pixel patches, K = {config['n_clusters']} ({config_id(config)}; selection: {selection})")
     summary = ctx.prepared.summary()
@@ -374,18 +392,21 @@ def write_report(ctx: Context, selection: str = "paper", partition: str | None =
         compare.add("ECM signal patches, background split recomputed in this run",
                     summary["n_signal"][config["patch_size"]], reference["n_signal"], "patches")
         compare.add("5-pixel signal patches (anchors), recomputed", summary["n_signal"][ANCHOR_SIZE],
-                    reference["n_anchors_record"], "patches")
+                    reference["n_anchors_record"], "anchors")
         for size in PATCH_SIZES:
             compare.add(f"coverage of {size}-pixel patches", summary["coverage"][size], reference["coverage_record"][str(size)],
                         "coverage")
-    encoder_report(ctx, config, source, out, compare)
+    missing = encoder_report(ctx, config, source, out, compare)
     name = partition or ("paper" if source == "paper" else "refit")
     if name == "refit" and not ctx.encoder_unit(config, 0, source).done():
         print("The seed-0 encoder is not finished, so there is no partition to analyse yet.")
+        missing = list(task_ranges(ctx.smoke))
     else:
         frozen = resolve_partition(ctx, selection, partition)
         cluster = descriptive_report(ctx, frozen, out, compare)
-        classifier_report(ctx, frozen, selection, cluster, out, compare)
+        missing += classifier_report(ctx, frozen, selection, cluster, out, compare)
+    # A comparison left by a report with other settings would not describe the tables written above.
+    (out / "comparison_with_paper.csv").unlink(missing_ok=True)
     if compare and compare.rows:
         table = compare.table()
         table.to_csv(out / "comparison_with_paper.csv", index=False)
@@ -394,5 +415,9 @@ def write_report(ctx: Context, selection: str = "paper", partition: str | None =
         if len(outside):
             print("Outside the tolerance:")
             print(outside.round(5).to_string(index=False))
+            print("\nThe encoder and the tuned classifiers are trained on a GPU. On a GPU model other than the paper's, "
+                  "their rows can fall outside the tolerance (docs_liver.md, 'Notes on exact reproduction').")
+    if missing:
+        print(f"\nNot finished, so not reported: {', '.join(kind for kind in task_ranges(ctx.smoke) if kind in missing)}.")
     log(f"report written to {out}")
-    return out
+    return missing

@@ -1,7 +1,8 @@
-"""Collect the selected configuration of every finished study, and resolve which selection to use.
+"""Collect the selected configuration of every study, and resolve which selection to use.
 
 ``select`` applies the tie rule of ``search.select_best`` to each study of this results
-directory and writes them in the layout of ``paper_selection.json``. No held-out score is read.
+directory and writes the selected configurations in the layout of ``paper_selection.json``.
+Every study must be finished. No held-out score is read.
 """
 
 from __future__ import annotations

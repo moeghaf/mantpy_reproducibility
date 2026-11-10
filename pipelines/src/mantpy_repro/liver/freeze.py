@@ -1,6 +1,8 @@
 """Choose the encoder and K from the finished search, without any label.
 
-Rule of the paper, fixed before any encoder was trained:
+Selection rule. The paper's Methods state the 0.80 threshold and step 4, and the legend of
+Supplementary Fig. 2a states the 0.01 band of step 2. The coverage and spread conditions of steps 1
+and 3 are defined here.
 
 1. candidates are the (encoder, K) pairs whose coverage is at least that of 10-pixel patches and
    whose clusters meet the spread guard in all three search seeds;
@@ -9,7 +11,7 @@ Rule of the paper, fixed before any encoder was trained:
 3. a pair is eligible when it meets the spread guard on five seeds and its five-seed stability is
    at least 0.80;
 4. K is the largest value with an eligible pair, and the most stable eligible encoder at that K is
-   selected (ties go to the faster fit, then to the configuration ID).
+   selected (pairs with equal stability go to the faster fit, then to the configuration ID).
 
 If no pair is eligible, the most stable pair meeting the guard on five seeds is selected and the
 result is marked ``rule_met = false``; the 0.80 threshold is never lowered.
@@ -20,7 +22,7 @@ from __future__ import annotations
 from ..store import read_json, write_json
 from .config import FREEZE_SEEDS, K_VALUES, SEARCH_SEEDS, STABILITY_MIN, TIE, config_id, paper_selection, validate, with_k
 from .core import Context, log
-from .search import evaluated_encoders, open_study, trial_table
+from .search import MAX_NSGA_TRIALS, _counts, evaluated_encoders, open_study, target_encoders, trial_table, unfinished_starts
 
 COVERAGE_REFERENCE_SIZE = 10
 
@@ -68,9 +70,28 @@ def selection_path(ctx: Context):
     return ctx.store.root / "selection" / "selection.json"
 
 
-def freeze(ctx: Context) -> dict:
-    """Apply the selection rule to the finished search and write the selection."""
+def require_finished(ctx: Context, study, n_encoders: int | None = None) -> None:
+    """Raise unless the search reached its target and evaluated every starting configuration."""
+    finished, waiting, proposed = _counts(study)
+    target, missing = target_encoders(ctx, n_encoders), unfinished_starts(ctx, study)
+    if not waiting and not missing and (finished >= target or proposed >= MAX_NSGA_TRIALS):
+        return
+    journal = ctx.store.root / "search" / "study.journal"
+    raise RuntimeError(
+        f"The search is not finished: {finished} of {target} new encoders, {waiting} queued trial(s), "
+        f"{len(missing)} starting configuration(s) not evaluated. Run the 'search' stage again (with the same "
+        "--n-encoders, if one was given). The trial of a worker that was killed outright stays open: if a starting "
+        f"configuration is still not evaluated after that, delete {journal} and run 'search' again. "
+        "Encoders that were already fitted are read from the results directory.")
+
+
+def freeze(ctx: Context, n_encoders: int | None = None) -> dict:
+    """Apply the selection rule to the finished search and write the selection.
+
+    ``n_encoders`` is the target the search was run with (default: the 60 of the paper's runs).
+    """
     study = open_study(ctx)
+    require_finished(ctx, study, n_encoders)
     out = selection_path(ctx).parent
     out.mkdir(parents=True, exist_ok=True)
     trial_table(study).to_csv(out / "all_trials.csv", index=False)

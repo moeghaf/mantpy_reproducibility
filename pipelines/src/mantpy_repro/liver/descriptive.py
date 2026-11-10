@@ -1,15 +1,17 @@
 """Descriptive statistics of the frozen ECM clusters (Fig. 3a-c, h, i; Supplementary Fig. 2b, c).
 
-Definitions of the paper:
+Definitions (those of the paper's Methods, with two additions that are marked):
 
 - mouse fraction of a cluster = its patches / ECM signal patches, both pooled over the mouse's ROIs;
   group values are the mean of the two mice;
 - infection-associated cluster = the largest log2((mean infected fraction + 1e-3) / (mean naive
-  fraction + 1e-3)) among clusters making up at least 1% of the ECM patches of every infected mouse;
+  fraction + 1e-3)) among clusters making up at least 1% of the ECM patches of every infected mouse
+  (addition: if there is no such cluster, the largest mean infected - mean naive fraction);
 - graph = edges of the Delaunay triangulation of all patch centres of an ROI; co-occurrence counts
   the edges joining two ECM signal patches. Every a-b edge adds 1 to O[a, b] and 1 to O[b, a]
   (O = L^T A L); O and the cluster sizes n are summed within a mouse; the score is
-  log2((O + 1e-9) / E) with E = sum(O) p p^T and p = n / sum(n);
+  log2((O + 1e-9) / E) with E = sum(O) p p^T and p = n / sum(n) (addition: the 1e-9 keeps the score
+  of a pair without an edge finite);
 - KO - WT = mean score of the two infected KO mice minus that of the two infected WT mice;
 - subgraphs = patches of the infection-associated cluster joined within 40 pixels, connected
   components of at least five patches; mean degree = 2 x edges / patches;
@@ -24,7 +26,7 @@ import numpy as np
 from .config import MARKERS, SPECIFICITY_EPS, SPECIFICITY_PRESENCE, SUBGRAPH_MIN_NODES, SUBGRAPH_RADIUS
 
 
-# ------------------------------------------------------------------------------------ composition
+# Composition
 def mouse_fractions(nodes, k: int):
     """Rows = mice (with their group); columns 0..K-1 = fraction of the mouse's ECM signal patches."""
     signal = nodes[nodes.cluster >= 0]
@@ -43,7 +45,7 @@ def infection_cluster(nodes, k: int) -> dict:
     log2_ratio = np.log2((infected.mean() + SPECIFICITY_EPS) / (naive.mean() + SPECIFICITY_EPS))
     present = (infected >= SPECIFICITY_PRESENCE).all()
     ranked = log2_ratio[present].sort_values(ascending=False, kind="mergesort")
-    # No cluster present in every infected mouse: fall back to the largest infected - naive difference.
+    # Without a cluster present in every infected mouse the ratio rule has no candidate.
     chosen = int((ranked if len(ranked) else difference).index[0])
     return {"cluster": chosen, "log2_ratio": {int(c): float(v) for c, v in log2_ratio.items()},
             "present_in_every_infected_mouse": {int(c): bool(v) for c, v in present.items()}}
@@ -66,7 +68,7 @@ def marker_profiles(nodes, features: np.ndarray, k: int):
     return out
 
 
-# ------------------------------------------------------------------------- graphs, co-occurrence
+# Graphs, co-occurrence
 def delaunay_edges(xy: np.ndarray) -> np.ndarray:
     """Unique undirected edges (E x 2, i < j) of the Delaunay triangulation (SciPy's default Qhull options)."""
     from scipy.spatial import Delaunay
@@ -130,7 +132,7 @@ def cooccurrence(nodes, k: int):
     return pd.DataFrame(pairs), pd.DataFrame(per_roi)
 
 
-# -------------------------------------------------------------------------------------- subgraphs
+# Subgraphs
 def components(xy: np.ndarray, radius: float = SUBGRAPH_RADIUS, min_nodes: int = SUBGRAPH_MIN_NODES) -> list[dict]:
     """Connected components of the points joined within ``radius``, keeping those of at least ``min_nodes``."""
     from scipy.sparse import coo_matrix
@@ -166,7 +168,7 @@ def subgraphs(nodes, cluster: int):
     return pd.DataFrame(rows, columns=["roi", "mouse", "group", "component", "n_nodes", "n_edges", "mean_degree"])
 
 
-# ------------------------------------------------------------------------------------ explanation
+# Explanation
 def ig_localisation(attribution, k: int, cluster: int):
     """Per ROI and cluster: Pearson r between patch importance and cluster membership.
 

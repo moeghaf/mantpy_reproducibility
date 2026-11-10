@@ -9,14 +9,14 @@ import time
 import numpy as np
 
 from ..runtime import environment, resolve_device
-from ..store import Store
+from ..store import Store, claim_mode
 from . import models
 from .config import IMAGES, cnn_id, config_id, has_baseline_cnn, validate
 from .data import Prepared
 from .scoring import pairwise_ari
 
 MIN_FRACTION = 0.01          # every cluster must hold at least 1% of the common anchors
-MAX_DIRECTED_EDGES = 2.5e6   # larger graphs are skipped in the search (memory and time)
+MAX_DIRECTED_EDGES = 2.5e6   # nsga mode skips larger graphs (memory and time); paper mode fits every packaged configuration
 SMOKE_CROP = 4096            # --smoke analyses a central 4,096-pixel square with tiny training budgets
 
 
@@ -34,22 +34,7 @@ class Context:
         self.cache_dir = cache_dir
         self.cnn_init = cnn_init
         self.smoke = smoke
-        mode = self.store.root / "MODE"
-        expected = "smoke" if smoke else "full"
-        try:                                   # created once; parallel starters never rewrite it
-            with mode.open("x") as stream:
-                stream.write(expected)
-        except FileExistsError:
-            pass
-        found = mode.read_text().strip()
-        for _ in range(20):                    # another process may be between create and write
-            if found:
-                break
-            time.sleep(0.1)
-            found = mode.read_text().strip()
-        if found != expected:
-            raise RuntimeError(f"{self.store.root} holds {found or 'unknown'} results; "
-                               f"use another --results directory for a {expected} run.")
+        claim_mode(self.store.root, smoke)
         self._prepared: dict[str, Prepared] = {}
 
     def prepared(self, image: str) -> Prepared:
@@ -69,15 +54,15 @@ class Context:
     def init_for(self, config: dict, seed: int) -> str:
         """Which random start the CNN takes (see :func:`models.fit_cnn`).
 
-        ``paper`` reproduces the paper's runs: the baseline CNN was created once for seeds 0-3
-        (features cached from an earlier study) and every other CNN was created by the search
-        code, which drew its starting weights twice.
+        ``paper`` follows the paper's runs. Their features of the baseline CNN for seeds 0-3 came
+        from a network that was created once. Every other CNN was created by the search code,
+        which created a default network first and so drew the starting weights twice.
         """
         if self.cnn_init == "paper":
             return "once" if has_baseline_cnn(config) and seed <= 3 else "rebuilt"
         return self.cnn_init
 
-    # -- cached CNN features ----------------------------------------------------------------------
+    # Cached CNN features
     def cnn_features(self, image: str, config: dict, seed: int) -> np.ndarray:
         prepared = self.prepared(image)
         size, init = config["patch_size"], self.init_for(config, seed)
@@ -97,7 +82,7 @@ class Context:
 
         return self.store.compute(unit, fit, label=f"cnn {image} {cnn_id(config)} seed {seed}", log=log)["features"]
 
-    # -- one complete fit -------------------------------------------------------------------------
+    # One complete fit
     def run_unit(self, image: str, config: dict, seed: int, *, control: str | None = None,
                  encoder: str | None = None, keep_embedding: bool = False) -> dict[str, np.ndarray]:
         """Fit (or load) one configuration and seed. Returns patch labels and common-anchor labels.
@@ -115,6 +100,8 @@ class Context:
 
         def fit():
             features = self.cnn_features(image, config, seed)
+            # A copy: prepared.patches() returns the same object to every fit of this process, and
+            # the lines below remove its tiles and add the graph.
             data = prepared.patches(size).copy()
             del data.obsm["image_patches"]
             data.obsm["X_cnn"] = features

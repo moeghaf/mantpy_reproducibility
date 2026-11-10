@@ -37,7 +37,7 @@ def macro_f1_from_contingency(table: np.ndarray) -> float:
 
 
 def pairwise_ari(first: np.ndarray, second: np.ndarray, weights: np.ndarray | None = None) -> float:
-    """ARI between two labelings of the same items, optionally weighting each item."""
+    """ARI between two partitions of the same items, optionally weighting each item."""
     first = np.searchsorted(np.unique(first), first)
     second = np.searchsorted(np.unique(second), second)
     table = np.zeros((first.max() + 1, second.max() + 1), dtype=np.int64)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-import json
 import os
 from pathlib import Path
 import pickle
@@ -17,7 +16,6 @@ import numpy as np
 from ..store import unique_suffix
 from .config import ACCESSION, K_BY_IMAGE, PATCH_SIZES, paper_selection
 
-PIXEL_UM = 0.37744
 _HBM735_BUNDLE = "mantpy-hbm735-intestine.tar.gz"
 _HBM735_SHA256 = "be40fe0d90cc2a7512f3a5d66b454f703f39157fd0dc7472640db30fee087354"
 _HBM735_BYTES = 33442165
@@ -33,7 +31,11 @@ def _sha256(path: Path) -> str:
 
 
 def _fetch_hbm735(cache_dir: str | None) -> Path:
-    """Download (once) and verify the image-2 bundle from Zenodo."""
+    """Download (once) and verify the image-2 bundle from Zenodo.
+
+    The archive is kept in ``datasets/hbm735_intestine`` of the cache directory. A node without
+    internet access can use a cache that was filled on another machine.
+    """
     root = Path(cache_dir or os.environ.get("MANTPY_CACHE") or Path.home() / ".cache" / "mantpy")
     root = root / "datasets" / "hbm735_intestine"
     root.mkdir(parents=True, exist_ok=True)
@@ -177,7 +179,7 @@ class Prepared:
         self._patches: dict[int, object] = {}
         self._support: Support | None = None
 
-    # -- raw inputs -------------------------------------------------------------------------------
+    # Raw inputs
     @property
     def loaded(self) -> LoadedImage:
         if self._loaded is None:
@@ -197,7 +199,7 @@ class Prepared:
         clip = np.float32(self.limits["clip"])
         return np.minimum(self.loaded.raw.astype(np.float32), clip) / clip
 
-    # -- patches ----------------------------------------------------------------------------------
+    # Patches
     def patches(self, size: int):
         """AnnData of the ECM patches of ``size`` pixels (image tiles in ``obsm['image_patches']``)."""
         if size not in self._patches:
@@ -250,4 +252,4 @@ class Prepared:
     def summary(self) -> dict:
         support = self.support
         return {"image": self.name, "accession": ACCESSION[self.name], "k": self.k, "thresholds": self.limits,
-                "n_nodes": support.n_nodes, "coverage16": support.coverage, "common_anchors": int(len(support.common))}
+                "n_nodes": support.n_nodes, "coverage": support.coverage, "common_anchors": int(len(support.common))}

@@ -15,7 +15,7 @@ import time
 import numpy as np
 
 from ..runtime import environment, resolve_device
-from ..store import Store
+from ..store import Store, claim_mode
 from . import models
 from .config import (CLASSES, K_VALUES, SPREAD_MIN_ROIS, encoder_config, encoder_id, min_patches_per_roi, paper_partition,
                      paper_selection, validate)
@@ -96,16 +96,11 @@ class Context:
         self.device = resolve_device(device)
         self.threads = int(threads)
         self.smoke = smoke
-        mode = self.store.root / "MODE"
-        expected = "smoke" if smoke else "full"
-        if mode.exists() and mode.read_text().strip() != expected:
-            raise RuntimeError(f"{self.store.root} holds {mode.read_text().strip()} results; "
-                               f"use another --results directory for a {expected} run.")
-        mode.write_text(expected)
+        claim_mode(self.store.root, smoke)
         self.prepared = Prepared(self.store.root / "prepare", cache_dir, crop=SMOKE_CROP if smoke else None)
         self._graphs: dict[tuple[str, str], list] = {}
 
-    # -- budgets ----------------------------------------------------------------------------------
+    # Budgets
     def encoder_budget(self, config: dict) -> dict:
         """Encoder settings actually trained: the configuration's, or a few epochs for ``--smoke``."""
         return config if not self.smoke else {**config, "cnn_epochs": max(2, config["cnn_epochs"] // 100)}
@@ -114,7 +109,7 @@ class Context:
         """Classifier settings actually trained: the configuration's, or a few epochs for ``--smoke``."""
         return config if not self.smoke else {**config, "epochs": max(5, config["epochs"] // 20)}
 
-    # -- signal patches ---------------------------------------------------------------------------
+    # Signal patches
     def signal_source(self, selection: str) -> str:
         """Which ECM signal patches a selection analyses.
 
@@ -139,7 +134,7 @@ class Context:
         """Coverage of a patch size, an objective of the search (recomputed background split)."""
         return self.prepared.coverage(size)
 
-    # -- encoder fits -----------------------------------------------------------------------------
+    # Encoder fits
     def encoder_unit(self, config: dict, seed: int, source: str = "recomputed"):
         encoder = self.encoder_budget(encoder_config(config))
         size = encoder["patch_size"]
@@ -181,7 +176,7 @@ class Context:
     def mean_fit_seconds(self, config: dict, seeds, source: str = "recomputed") -> float:
         return float(np.mean([self.encoder_unit(config, seed, source).metadata()["seconds"] for seed in seeds]))
 
-    # -- frozen partition -------------------------------------------------------------------------
+    # Frozen partition
     def partition(self, config: dict, source: str, name: str) -> Partition:
         """The partition analysed downstream.
 
@@ -208,7 +203,7 @@ class Context:
         return Partition(name=name, patch_size=size, k=k, nodes=nodes, features=table.features,
                          identity=array_digest(np.asarray([size, k]), index, labels))
 
-    # -- classifier graphs ------------------------------------------------------------------------
+    # Classifier graphs
     def graphs(self, partition: Partition, graph_type: str) -> list:
         """Per-ROI graphs of the ECM signal patches (sorted ROI order), built once per process."""
         from .classify import build_graphs

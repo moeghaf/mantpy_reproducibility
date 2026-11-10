@@ -1,4 +1,7 @@
-"""Final fits of the selected configuration (Fig. 2a, b, d, e; Supplementary Fig. 1a).
+"""Final fits of the selected configuration.
+
+They give the scores of Fig. 2a, b and d, the intensity baselines of Fig. 2c and the seed
+stability and silhouette of Supplementary Fig. 1a. The maps of Fig. 2 are drawn in the notebook.
 
 For each image: five training seeds of the selected configuration, the two graph controls
 (shuffled edges, no edges), the GIN ablation, the intensity baselines, CNN Ward clustering and
@@ -22,7 +25,8 @@ BASELINE_THREADS = 8      # the paper's K-means baselines used eight threads (ce
 
 
 def final_tasks(image: str) -> list[dict]:
-    """Every independent fit of the final stage, for running as a cluster job array."""
+    """Every independent task of the final stage (a GraphMAE fit, the baselines or the K sweep),
+    for running as a cluster job array."""
     tasks = []
     for seed in FINAL_SEEDS:
         tasks.append({"image": image, "kind": "full", "seed": seed})
@@ -53,14 +57,7 @@ def run_task(ctx: Context, task: dict, selection: str = "paper") -> None:
         raise ValueError(kind)
 
 
-def run_final(ctx: Context, image: str, selection: str = "paper", task_index: int | None = None) -> None:
-    tasks = final_tasks(image)
-    chosen = tasks if task_index is None else [tasks[task_index]]
-    for task in chosen:
-        run_task(ctx, task, selection)
-
-
-# ------------------------------------------------------------------------------------- baselines
+# Baselines
 def pixel_kmeans(raw: np.ndarray, k: int, clip: float, n_sample: int = 2_000_000, seed: int = 0) -> np.ndarray:
     """K-means on pixel intensities, fitted on a fixed random sample of pixels (background included).
     Every pixel is assigned to its nearest centre; labels are ordered by centre intensity."""
@@ -110,6 +107,8 @@ def baselines(ctx: Context, image: str, config: dict) -> dict[str, np.ndarray]:
         majority = np.stack([
             np.bincount(pixels[y * size:(y + 1) * size, x * size:(x + 1) * size].ravel(), minlength=k)
             for y, x in zip(gy, gx)]).argmax(1)
+        # The report reads neither the contingency over all pixels nor the patch-majority labels
+        # of pixel K-means. They are saved for inspection.
         return {"pixel_contingency": pixel_table, "pixel_contingency_full": pixel_full,
                 "pixel_kmeans_patch_majority": majority.astype(np.int16),
                 "patch_mean_kmeans": patch_mean.astype(np.int16), "multi_otsu": otsu.astype(np.int16),
@@ -118,7 +117,7 @@ def baselines(ctx: Context, image: str, config: dict) -> dict[str, np.ndarray]:
     return ctx.store.compute(unit, fit, label=f"baselines {image}", log=log)
 
 
-# ----------------------------------------------------------------------------- number of clusters
+# Number of clusters
 def k_sweep(ctx: Context, image: str, config: dict) -> dict[str, np.ndarray]:
     """Recluster the saved GraphMAE embeddings and CNN features of seeds 0-2 at K = 2..8.
 

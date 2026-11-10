@@ -7,10 +7,11 @@ name = "mantpy-repro"
 version = "0.1.0"
 description = "Command-line pipelines that rerun the experiments of the Mantpy paper end to end"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 license = { text = "MIT" }
 dependencies = [
-  "mantpy[patch,gnn]>=1.1.0",
+  "mantpy[patch,gnn]>=1.3.0",
+  "torch>=2.13",
   "optuna>=4.2",
   "filelock>=3.12",
   "scikit-image>=0.21",
@@ -18,6 +19,11 @@ dependencies = [
   "threadpoolctl>=3",
   "tifffile",
   "pandas>=2.1",
+  "numpy",
+  "scipy",
+  "anndata",
+  "networkx",
+  "torch-geometric",
 ]
 
 [project.optional-dependencies]
@@ -33,4 +39,4 @@ packages = ["src/mantpy_repro"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["gpu: trains models on a GPU and compares them with the paper (several minutes)"]
+markers = ["gpu: refits models on the real data and compares them with the paper (several minutes); the intestine and liver tests need a GPU"]

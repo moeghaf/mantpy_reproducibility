@@ -9,8 +9,9 @@ Tasks, each independent and resumable:
   five seeds, with integrated gradients of its held-out ROIs (also the untuned model of
   Supplementary Table 5);
 - ``composition_lr``: logistic regression on ROI cluster fractions, all folds;
-- ``permutation``: one relabelling of the mice: eight held-out mice x five seeds of the ROI-mean classifier
-  (the true labelling is the ``classifier`` tasks, so 69 relabellings remain);
+- ``permutation``: one allocation (one way of labelling four of the eight mice as infected): eight
+  held-out mice x five seeds of the ROI-mean classifier (the true labelling is the ``classifier``
+  tasks, so 69 allocations remain);
 - ``tuned``: the tuned configuration of one held-out mouse refitted with five seeds.
 """
 
@@ -22,7 +23,7 @@ from .core import Context, Partition
 from .freeze import selected_config
 from .tune import fit_tuned_fold, tune_fold, tuned_record
 
-SMOKE_ALLOCATIONS = 3        # --smoke fits the true labelling and two relabellings only
+SMOKE_ALLOCATIONS = 3        # --smoke fits the true labelling and two other allocations only
 OBSERVED_ALLOCATION = 0      # the four infected mice are the first four in sorted order
 
 

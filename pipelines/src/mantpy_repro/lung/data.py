@@ -7,9 +7,11 @@ cluster jobs need neither the dataset nor internet access.
 Two partitions of the patches are available. ``fresh`` is recomputed here by the paper's
 procedure: K-means with three to seven components scored by the silhouette of the signal
 patches, the selected fit, and removal of the lowest-signal component as background.
-``paper`` is the partition of the paper's runs (11,435 signal patches), read from the
-published source data of Supplementary Fig. 3. K-means assigns about 15 patches near the
-background boundary differently on other platforms, so ``paper`` is the default.
+``paper`` is the partition of the paper's runs (11,435 signal patches), packaged in
+``paper_partition.json`` from the published source data of Supplementary Fig. 3. K-means with
+several OpenMP threads does not repeat with a fixed seed, so the fresh partition is fitted
+with one thread, and ``paper`` is the default so that the results do not depend on the
+installed K-means.
 """
 
 from __future__ import annotations
@@ -82,7 +84,7 @@ class Cohort:
         return digest.hexdigest()[:16]
 
 
-# ------------------------------------------------------------------------------------- extraction
+# Extraction
 def load_bundle(cache_dir: str | None = None):
     """The public dataset (downloaded and cached on first use)."""
     import mantpy as mt
@@ -95,7 +97,7 @@ def retain_patch_support(ecm: dict) -> None:
 
     The paper's runs used Mantpy 1.0.1, whose patch extraction at ``background_quantile=0``
     kept only patches strictly above the ROI's lowest mean feature (computed in float32).
-    Mantpy 1.1 keeps every patch, so the rule is applied here before clustering.
+    Mantpy 1.1 and later keep every patch, so the rule is applied here before clustering.
     """
     for adata in ecm.values():
         patches = adata.uns["ecm_patches"]
@@ -201,7 +203,7 @@ def extract(bundle, patch_size: int = PATCH_SIZE) -> tuple[dict[str, np.ndarray]
     return arrays, {"dataset": DATASET_DOI, "mantpy": getattr(mt, "__version__", None)}
 
 
-# --------------------------------------------------------------------------------- paper partition
+# Paper partition
 def paper_partition() -> dict:
     """The paper's partition: for each ROI one character per native tile, in row-major order.
 
@@ -215,7 +217,7 @@ def decode_partition(text: str) -> np.ndarray:
     return np.asarray([code[char] if char in code else int(char) for char in text], dtype=np.int16)
 
 
-# ----------------------------------------------------------------------------------------- cohorts
+# Cohorts
 class Prepared:
     """Cohorts built from the arrays stored by the ``prepare`` stage."""
 

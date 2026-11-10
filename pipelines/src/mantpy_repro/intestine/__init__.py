@@ -1,1 +1,2 @@
-"""Small-intestine collagen IV experiments (Figure 2, Supplementary Fig. 1, Supplementary Table 3)."""
+"""Small-intestine collagen IV experiments: the scores of Figure 2a, b and d, the intensity baselines
+of Figure 2c, Supplementary Fig. 1a and the search of Supplementary Table 3."""

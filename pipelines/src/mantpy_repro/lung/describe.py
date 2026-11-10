@@ -22,7 +22,7 @@ from .graphs import GraphCache, build_graphs, joint_graph
 EDGE_RULE_SEED = 0
 
 
-# ----------------------------------------------------------------------------------- graph counts
+# Graph counts
 def graph_counts(cohort, cache: GraphCache):
     """Edge counts of the Fig. 4 graph in every ROI.
 
@@ -59,7 +59,7 @@ def graph_counts(cohort, cache: GraphCache):
     return pd.DataFrame(rows)
 
 
-# ------------------------------------------------------------------------------------ association
+# Association
 def _clean(table, index: list[str], levels: list):
     """Keep every declared category, with zero counts where a category has no edges, and
     report log2(observed/expected) as -inf when either count is zero."""
@@ -109,7 +109,7 @@ def marker_contrast(cohort, cache: GraphCache, recipe: GraphRecipe, cell_type: s
     return pd.DataFrame.from_dict(rows, orient="index", columns=cohort.ecm_names).rename_axis("roi"), contacts
 
 
-# ------------------------------------------------------------------------------------- edge rules
+# Edge rules
 def edge_rules(n_rules: int, seed: int = EDGE_RULE_SEED) -> list[GraphRecipe]:
     """The Fig. 4 graph followed by ``n_rules`` random cell-ECM edge rules from the search space.
 
@@ -153,7 +153,7 @@ def edge_rule_sensitivity(cohort, recipes: list[GraphRecipe], cell_type: str = F
     return table
 
 
-# ------------------------------------------------------------------------------------------ stage
+# Stage
 def run(ctx: Context) -> None:
     """Compute the three parts; each is one resumable unit."""
     cohort, cache = ctx.cohort(), ctx.graphs()

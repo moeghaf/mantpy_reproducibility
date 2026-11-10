@@ -10,14 +10,17 @@ Two modes choose which configurations are evaluated:
 
 ``paper`` (default)
     The configurations evaluated in the paper (197 for image 1, 200 for image 2), packaged in
-    ``paper_search_records.json``. Each is refitted here; the list itself is fixed, so the work
-    splits cleanly over cluster jobs.
+    ``paper_search_records.json``. Each is refitted here with three seeds. The list is fixed, so
+    each cluster job can take one part of it (``--shard I/N``).
 ``nsga``
-    A new NSGA-II search (Optuna) with the paper's sampler settings. It is stochastic and
-    explores different configurations from the paper's.
+    A new NSGA-II search (Optuna) with the sampler of the paper's search (population 24, seed
+    20261023). It starts with no earlier results, while the paper's search started from
+    configurations fitted before it (119 for image 1, 122 for image 2) and added 78 per image.
+    It is stochastic and explores different configurations from the paper's.
 
-Either way every evaluation is written to ``search/<image>/evaluations/<config_id>.json``, and
-the selection stage reads only those files. Any number of workers can share a results directory.
+Either way every evaluation is written to ``search/<image>/evaluations/<config_id>.json``. The
+``freeze`` stage takes its list of evaluated configurations from those files. Any number of
+workers can share a results directory.
 """
 
 from __future__ import annotations
@@ -56,12 +59,18 @@ def _is_out_of_memory(error: BaseException) -> bool:
 
 
 def evaluate(ctx: Context, image: str, config: dict, seeds=SEARCH_SEEDS) -> dict:
-    """Fit ``config`` for every seed (skipping finished fits) and write its evaluation record."""
+    """Fit ``config`` for every seed (skipping finished fits) and write its evaluation record.
+
+    A complete record is returned as it is. A record with another status (a fit ran out of GPU
+    memory) is fitted again, so that a later run on a GPU with more memory can complete it.
+    """
     config = validate(config)
     identity = config_id(config)
     path = _evaluation_path(ctx, image, identity)
     if path.exists():
-        return read_json(path)
+        record = read_json(path)
+        if record["status"] == "complete":
+            return record
     prepared = ctx.prepared(image)
     coverage = prepared.support.coverage[config["patch_size"]]
     record = {"image": image, "config_id": identity, "config": config, "coverage": coverage,
@@ -89,7 +98,7 @@ def evaluate(ctx: Context, image: str, config: dict, seeds=SEARCH_SEEDS) -> dict
 
 
 def search_table(ctx: Context, image: str):
-    """One row per evaluated configuration of ``image`` (the supplementary search table)."""
+    """One row per evaluated configuration of ``image``, built from the evaluation records."""
     import pandas as pd
 
     folder = ctx.store.root / "search" / image / "evaluations"
@@ -105,7 +114,13 @@ def n_complete(ctx: Context, image: str) -> int:
     return int((table["status"] == "complete").sum())
 
 
-# ------------------------------------------------------------------------ paper's configurations
+def missing_evaluations(ctx: Context, image: str, limit: int | None = None) -> list[str]:
+    """IDs of the paper's configurations (the first ``limit`` of them) without an evaluation record."""
+    return [item["config_id"] for item in paper_records(image)[:limit]
+            if not _evaluation_path(ctx, image, item["config_id"]).exists()]
+
+
+# Paper's configurations
 def run_paper_search(ctx: Context, image: str, *, shard: tuple[int, int] = (0, 1),
                      time_limit_hours: float | None = None, limit: int | None = None) -> bool:
     """Evaluate the paper's configurations. ``shard=(i, n)`` takes every n-th one, starting at i.
@@ -117,20 +132,20 @@ def run_paper_search(ctx: Context, image: str, *, shard: tuple[int, int] = (0, 1
     deadline = None if time_limit_hours is None else time.time() + 3600 * time_limit_hours
     log(f"{image}: {len(records)} of the paper's configurations in shard {shard[0]}/{shard[1]}")
     for index, item in enumerate(records):
-        if deadline is not None and time.time() > deadline:
+        if deadline is not None and time.time() >= deadline:
             log(f"{image}: time limit reached; rerun the same command to continue")
             return False
         record = evaluate(ctx, image, item["config"])
         if record["status"] == "complete":
             log(f"{image} {record['config_id']} ({index + 1}/{len(records)}): stability {record['stability3']:.3f} "
-                f"(paper {item['stability3']:.3f}), coverage {record['coverage']:.3f}, "
+                f"(paper {item['stability3']:.3f} over {item['n_seeds']} seeds), coverage {record['coverage']:.3f}, "
                 f"min fraction {record['min_fraction']:.3f}")
         else:
             log(f"{image} {record['config_id']} ({index + 1}/{len(records)}): {record['status']}")
     return True
 
 
-# ------------------------------------------------------------------------------- new NSGA-II run
+# New NSGA-II run
 def _storage(root: Path):
     """A study file that is safe to share between processes and cluster nodes (also on NFS)."""
     import optuna
@@ -168,7 +183,8 @@ def run_nsga_search(ctx: Context, image: str, n_trials: int = 200, *, max_edges:
 
     ``worker`` gives each parallel worker its own sampler seed, so workers that share the study
     propose different configurations. Graphs with more than ``max_edges`` estimated directed
-    edges are skipped, as in the paper's search, and do not count towards ``n_trials``.
+    edges are skipped and do not count towards ``n_trials``. The paper's search counted a
+    skipped graph as a trial.
     Returns True when the target is reached.
     """
     from optuna.trial import TrialState
@@ -181,7 +197,7 @@ def run_nsga_search(ctx: Context, image: str, n_trials: int = 200, *, max_edges:
     failures = 0
     log(f"{image}: {n_complete(ctx, image)} configurations fitted, target {n_trials} (worker {worker})")
     while n_complete(ctx, image) < n_trials:
-        if deadline is not None and time.time() > deadline:
+        if deadline is not None and time.time() >= deadline:
             log(f"{image}: time limit reached; rerun the same command to continue")
             return False
         trial = study.ask(distributions)
@@ -203,7 +219,7 @@ def run_nsga_search(ctx: Context, image: str, n_trials: int = 200, *, max_edges:
         except Exception:
             study.tell(trial, state=TrialState.FAIL)
             failures += 1
-            log(f"{image} trial {trial.number} {identity}: FAILED\n{traceback.format_exc()}")
+            log(f"{image} trial {trial.number} {identity}: failed\n{traceback.format_exc()}")
             if failures >= MAX_CONSECUTIVE_FAILURES:
                 raise
             continue

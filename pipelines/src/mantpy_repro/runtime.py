@@ -6,9 +6,47 @@ from contextlib import contextmanager
 import gc
 import importlib.metadata
 import os
+import platform
 import random
+import signal
+import subprocess
+import sys
 
 import numpy as np
+
+UNFINISHED = 3     # exit code of a search that stopped at its time limit; the same command continues it
+
+
+def run_workers(commands: list[list[str]]) -> int:
+    """Run the commands side by side and wait for all of them.
+
+    Returns 0 when every worker succeeded, ``UNFINISHED`` when the only other outcome was a
+    search that stopped at its time limit, and 1 otherwise (also for a worker killed by a signal).
+    """
+    processes = [subprocess.Popen(command, env=os.environ.copy()) for command in commands]
+    codes = [process.wait() for process in processes]
+    for index, code in enumerate(codes):
+        if code != 0:
+            print(f"worker {index} exited with code {code}", file=sys.stderr)
+    if all(code == 0 for code in codes):
+        return 0
+    return UNFINISHED if all(code in (0, UNFINISHED) for code in codes) else 1
+
+
+@contextmanager
+def exit_on_sigterm():
+    """Within the block, a termination request (a cancelled or timed-out cluster job) raises ``SystemExit``.
+
+    The running code can then close what it has open before the process ends.
+    """
+    def handler(signum, frame):
+        raise SystemExit(128 + signum)
+
+    previous = signal.signal(signal.SIGTERM, handler)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous)
 
 
 def resolve_device(requested: str = "auto") -> str:
@@ -16,14 +54,18 @@ def resolve_device(requested: str = "auto") -> str:
     import torch
 
     if requested == "auto":
-        return "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.cuda.is_available():
+            return "cuda"
+        print("No CUDA device is visible: running on the CPU.", file=sys.stderr)
+        return "cpu"
     if requested == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("--device cuda was requested but no CUDA device is visible.")
     return requested
 
 
 def configure_numerics(threads: int = 2) -> None:
-    """Numerical settings of the paper's runs: full float32 precision and deterministic kernels.
+    """Numerical settings of the paper's runs: full float32 precision and deterministic kernels
+    where PyTorch has them (an operation without one runs with a warning).
 
     TF32 is switched off because it changes convolution results on recent NVIDIA GPUs
     enough to alter the trained CNN.
@@ -75,12 +117,12 @@ def release_cuda() -> None:
 
 
 def environment() -> dict:
-    """Software and hardware recorded with every result."""
+    """Package versions, Python, platform, CUDA version and the visible GPU, stored with fitted units."""
     import torch
 
     versions = {}
     for name in ("mantpy", "torch", "torch-geometric", "pytorch-lightning", "numpy", "scipy", "scikit-learn",
-                 "anndata", "optuna", "pybanksy", "utag", "cellcharter", "squidpy"):
+                 "scikit-image", "pandas", "anndata", "optuna", "squidpy", "filelock", "threadpoolctl"):
         try:
             versions[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
@@ -93,6 +135,8 @@ def environment() -> dict:
         pass
     return {
         "versions": versions,
+        "python": platform.python_version(),
+        "platform": platform.platform(),
         "cuda": torch.version.cuda,
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU",
     }

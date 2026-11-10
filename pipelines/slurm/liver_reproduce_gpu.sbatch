@@ -1,9 +1,13 @@
 #!/bin/bash
-# Final fits that use a GPU: one task per array job (see `mantpy-liver tasks`).
+# Final fits that use a GPU: each array task runs one task of `mantpy-liver tasks`.
 # Tasks 0-4 are the five training seeds of the selected encoder; tasks 91-98 refit the tuned
 # classifier of each held-out mouse with five seeds.
 # SELECTION=paper (default) uses the paper's settings. SELECTION=search uses this directory's own
 # selections and needs the 'freeze' and 'tune' stages to be finished.
+# PARTITION sets the --partition option of the command (paper or refit). It is not the Slurm partition.
+# Tasks 0-4 use two CPU threads. Tasks 91-98 keep the command's default of 16 CPU threads on the
+# 8 CPUs requested: their fits run on the GPU, and more threads than cores is slower but gives the
+# same result. A request of 16 CPUs exceeds the cores per GPU that some clusters allow.
 #
 # Usage (CSF3): mkdir -p logs; sbatch -p gpuL --export=ALL,VENV=<venv> pipelines/slurm/liver_reproduce_gpu.sbatch
 #SBATCH --job-name=liver_final_gpu

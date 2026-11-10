@@ -2,8 +2,9 @@
 
 Mantpy supplies the topology and the Euclidean edge lengths. The settings that make the
 searched recipes deterministic are fixed here: SciPy's nearest-neighbour tie order, and a
-seeded jitter of 1e-6 pixels before Delaunay triangulation of the regular patch lattice.
-A Delaunay edge is kept up to twice the recipe's radius.
+seeded jitter of 1e-6 pixels before every Delaunay triangulation (the patch lattice is
+regular). In the ECM-ECM and cell-ECM layers a Delaunay edge is kept up to twice the recipe's
+radius when the recipe has one; the cell-cell Delaunay layer has no length limit.
 """
 
 from __future__ import annotations

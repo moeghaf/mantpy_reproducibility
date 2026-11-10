@@ -10,7 +10,7 @@ import time
 
 import numpy as np
 
-from ..store import Store
+from ..store import Store, claim_mode
 from .config import EVALUATION_SEEDS, N_EDGE_RULES, PATCH_SIZE, TRIALS
 from .data import DATASET_DOI, PARTITION_SEED, PARTITION_THREADS, PARTITIONS, SIGNAL_K_RANGE, Cohort, Prepared
 from .graphs import GraphCache
@@ -62,14 +62,7 @@ class Context:
         self.partition = partition
         self.smoke = smoke
         self.budget = Budget.of(smoke)
-        mode = self.store.root / "MODE"
-        expected = "smoke" if smoke else "full"
-        if not mode.exists():
-            mode.write_text(expected)
-        found = mode.read_text().strip() or expected      # empty while another worker is writing it
-        if found != expected:
-            raise RuntimeError(f"{self.store.root} holds {found} results; "
-                               f"use another --results directory for a {expected} run.")
+        claim_mode(self.store.root, smoke)
         self._prepared: Prepared | None = None
         self._cohort: Cohort | None = None
         self._cache: GraphCache | None = None
@@ -107,7 +100,7 @@ class Context:
         return folds if self.budget.roi_folds is None else folds[:self.budget.roi_folds]
 
 
-# ------------------------------------------------------------------------------- tables in a unit
+# Tables in a unit
 _STATES = {"nan": 1, "+inf": 2, "-inf": 3}
 
 

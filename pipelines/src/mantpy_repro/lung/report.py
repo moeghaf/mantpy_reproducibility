@@ -17,7 +17,9 @@ from .core import Context, log, unit_arrays, unpack
 from .data import decode_partition
 from .selection import load_selection
 
-TOLERANCE = 0.01     # absolute difference treated as agreement with the paper; counts must be equal
+# Absolute difference treated as agreement with the paper. Counts must be equal, and a number the
+# paper gives only rounded is allowed half its last printed digit more.
+TOLERANCE = 0.01
 
 METRICS = ["roc_auc", "prior_adjusted_roc_auc", "pr_auc", "prior_adjusted_pr_auc", "accuracy_before", "accuracy_after",
            "recovery", "pristine_relabel_rate", "correction_precision", "macro_f1_after", "balanced_accuracy_after"]
@@ -30,7 +32,7 @@ def paper_reference() -> dict:
     return json.loads(Path(__file__).with_name("paper_reference.json").read_text(encoding="utf-8"))
 
 
-# ------------------------------------------------------------------------------ selected settings
+# Selected settings
 def selection_table(chosen: dict):
     """The selected cell-context settings in the layout of Supplementary Table 6."""
     import pandas as pd
@@ -66,7 +68,7 @@ def selection_table(chosen: dict):
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------------------- scores
+# Scores
 def denoising_scores(ctx: Context, selection: str):
     """Rows of every finished final fit of the mouse and single-ROI schemes."""
     import pandas as pd
@@ -121,7 +123,7 @@ def refit_scores(ctx: Context, selection: str):
     return scores, per_roi, summary
 
 
-# ------------------------------------------------------------------------------------ comparison
+# Comparison with the paper
 class Comparison:
     """Rows of ``comparison_with_paper.csv``: this run, the paper, their difference."""
 
@@ -266,7 +268,7 @@ def compare_denoising(rows: Comparison, scores, per_roi, recovery_per_roi, refit
             table = mixed[mixed["scheme"] == experiment] if len(mixed) else mixed
             label = f"{experiment} held out"
         values = table.loc[table["context"] == entry["context"], metric] if len(table) else []
-        if len(values):
+        if len(values) == len(reference["partition"]["signal_per_roi"]):      # a statistic over ROIs needs every ROI
             rows.add("numbers in the text", f"{metric}, {entry['context']} context, {label}, {entry['statistic']} over ROIs",
                      getattr(values, entry["statistic"])(), entry["paper"], rounding=0.5 * 10 ** -entry["decimals"])
 
@@ -299,13 +301,16 @@ def compare_example(rows: Comparison, ctx: Context, selection: str, reference: d
                  0, exact=True)
 
 
-def compare_refit(rows: Comparison, summary, reference: dict) -> None:
+def compare_refit(rows: Comparison, summary, per_roi, reference: dict) -> None:
+    """Means over the held-out ROIs; an arm is compared only when every ROI is finished."""
     if not len(summary):
         return
-    indexed = summary.set_index(["normalization", "context", "kind"])
+    keys = ["normalization", "context", "kind"]
+    indexed = summary.set_index(keys)
+    finished = per_roi.groupby(keys).size()
     for entry in reference["refit_control"]:
         key = (entry["normalization"], entry["context"], entry["kind"])
-        if key not in indexed.index:
+        if finished.get(key, 0) != len(reference["partition"]["signal_per_roi"]):
             continue
         for metric, value in entry.items():
             if metric in indexed.columns:
@@ -313,9 +318,37 @@ def compare_refit(rows: Comparison, summary, reference: dict) -> None:
                          f"{entry['normalization']}", indexed.loc[key, metric], value)
 
 
-# ------------------------------------------------------------------------------------------ report
+def missing_results(ctx: Context, selection: str) -> list[str]:
+    """Names of the describe units and final fits of this run that are not finished."""
+    from .final import final_tasks
+
+    root = ctx.store.root
+    folders = {f"describe {label}": root / "describe" / ctx.partition / folder
+               for folder, label in (("graphs", "graph counts"), ("association", "association"),
+                                     ("edge_rules", "edge rules"))}
+    for task in final_tasks(ctx.cohort().mice(), ctx.budget.roi_folds):
+        if task["experiment"] == "refit":
+            folder = root / "refit" / "final" / selection / task["normalization"]
+        else:
+            folder = root / "final" / ctx.partition / selection / task["experiment"]
+        name = " ".join(str(task[key]) for key in ("experiment", "normalization", "fold", "context") if key in task)
+        folders[f"final {name}"] = folder / task["fold"] / task["context"]
+    return [name for name, folder in folders.items() if not (folder / "completion.json").exists()]
+
+
+def _log_missing(missing: list[str]) -> None:
+    if missing:
+        log(f"{len(missing)} results are not finished and are not in the report. A statistic over ROIs is compared "
+            "with the paper only when every ROI is finished; the summary tables average the finished ROIs.")
+        for name in missing:
+            log(f"  not finished: {name}")
+
+
 def write_report(ctx: Context, selection: str = "paper") -> Path:
-    """Write every table and the comparison with the paper; return the report folder."""
+    """Write every table and the comparison with the paper; return the report folder.
+
+    Results that are not finished are left out and named at the end of the log.
+    """
     import pandas as pd
 
     out = ctx.store.root / "report"
@@ -340,7 +373,6 @@ def write_report(ctx: Context, selection: str = "paper") -> Path:
                           ("edge_rules", {"edge_rule_sensitivity": "rules__"})):
         arrays = unit_arrays(described / folder)
         if arrays is None:
-            log(f"'{folder}' of the describe stage is not finished; it is left out of the report")
             continue
         for name, prefix in items.items():
             tables[name] = unpack(arrays, prefix)
@@ -357,8 +389,6 @@ def write_report(ctx: Context, selection: str = "paper") -> Path:
         for name, table in (("denoising_scores", scores), ("denoising_per_roi", per_roi), ("denoising_summary", summary),
                             ("class_recovery", recovery)):
             table.to_csv(out / f"{name}.csv", index=False)
-    else:
-        log("no final fit of the mouse or single-ROI scheme is finished")
     refit_all, refit_per_roi, refit_summary = refit_scores(ctx, selection)
     if len(refit_all):
         for name, table in (("refit_control_scores", refit_all), ("refit_control_per_roi", refit_per_roi),
@@ -377,17 +407,20 @@ def write_report(ctx: Context, selection: str = "paper") -> Path:
         print(shown[["normalization", "context", "roc_auc", "recovery", "accuracy_after",
                      "accuracy_after_common_signal"]].round(4).to_string(index=False))
 
+    missing = missing_results(ctx, selection)
     if ctx.smoke:
         log(f"smoke run: tables written to {out}; no comparison with the paper")
+        _log_missing(missing)
         return out
     if not ctx.prepared().has_paper_grid():
         log(f"the ROIs are not the paper's; tables written to {out} without a comparison")
+        _log_missing(missing)
         return out
     compare_partition(rows, ctx, reference)
     compare_description(rows, tables, reference)
     compare_denoising(rows, scores, per_roi, recovery_per_roi, refit_per_roi, reference)
     compare_example(rows, ctx, selection, reference)
-    compare_refit(rows, refit_summary, reference)
+    compare_refit(rows, refit_summary, refit_per_roi, reference)
     table6 = pd.DataFrame(reference["supplementary_table_6"])
     if len(settings) == len(table6):
         same = (settings.astype(str).reset_index(drop=True) == table6[settings.columns].astype(str)).all(axis=1).sum()
@@ -407,12 +440,14 @@ def write_report(ctx: Context, selection: str = "paper") -> Path:
     print(counts.rename(columns={"sum": "within", "count": "compared"}).to_string())
     outside = compare[~compare["within_tolerance"]]
     print(f"\n{len(compare) - len(outside)} of {len(compare)} reported numbers are within tolerance of the paper "
-          f"(absolute difference up to {TOLERANCE}; counts equal).")
+          f"(absolute difference up to {TOLERANCE}, plus half the last printed digit where the paper gives a "
+          "rounded number; counts equal).")
     if selection == "search":
-        print("The settings come from this directory's search, which can select other configurations than the "
+        print("The settings come from this directory's search, which can select configurations other than the "
               "paper's; differences in the denoising scores are then expected.")
     if len(outside):
         print("Outside the tolerance:")
         print(outside.round(4).to_string(index=False))
     log(f"report written to {out}")
+    _log_missing(missing)
     return out

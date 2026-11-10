@@ -35,7 +35,8 @@ Results are close to the paper's but not identical, because every model is refit
 
 ## 2. Full scripts
 
-Command-line scripts rerun each experiment from the raw data, including the search for the settings.
+Command-line scripts rerun each experiment with the paper's selected settings and can also repeat the
+search for the settings.
 
 ```bash
 pip install -e pipelines
@@ -47,12 +48,14 @@ mantpy-intestine reproduce --results results/intestine
 
 | Command | Experiment |
 |---|---|
-| `mantpy-intestine` | Small intestine (Figure 2, Supplementary Fig. 1, Supplementary Table 3) |
+| `mantpy-intestine` | Small intestine (ARI values of Figure 2a, b and d, intensity baselines of Figure 2c, Supplementary Fig. 1a, Supplementary Table 3) |
 | `mantpy-liver` | Liver (Figure 3, Supplementary Fig. 2, Supplementary Tables 4 and 5) |
 | `mantpy-lung` | Lung (Figure 4, Supplementary Fig. 3, Supplementary Table 6) |
 
-`reproduce` uses the paper's selected settings and prints each result beside the paper's; `all`
-also reruns the search. Stages, outputs and cluster job files are described in
+`reproduce` uses the paper's selected settings (for liver and lung also the ECM clusters deposited
+with the paper), prints the main results beside the paper's and writes every comparison to
+`report/comparison_with_paper.csv` in the results directory; `all` also repeats the search for the
+settings. Stages, outputs and cluster job files are described in
 [pipelines](pipelines/README.md).
 
 ## 3. Redraw the figures

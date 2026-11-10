@@ -28,7 +28,7 @@ def fixed_classifier() -> dict:
     return dict(paper_selection()["fixed_classifier"])
 
 
-# ----------------------------------------------------------------------------------------- graphs
+# Graphs
 def patch_edges(xy: np.ndarray, graph_type: str) -> np.ndarray:
     """Undirected edges (E x 2) over all patch centres of one ROI.
 
@@ -116,7 +116,7 @@ def build_graphs(ctx: Context, partition: Partition, graph_type: str) -> list:
     return graphs
 
 
-# ------------------------------------------------------------------------------------ labellings
+# Labellings
 def mouse_labels(ctx: Context) -> dict[str, int]:
     """True label of every mouse (1 = infected), in sorted mouse order."""
     table = ctx.roi_table()
@@ -138,7 +138,7 @@ def genotype_preserving(allocation: tuple[str, ...], genotype: dict[str, str]) -
     return all(sum(genotype[mouse] == g for mouse in allocation) == N_INFECTED // 2 for g in sorted(set(genotype.values())))
 
 
-# ------------------------------------------------------------------------------------- one fit
+# One fit
 def fold_fit(ctx: Context, partition: Partition, *, parts: tuple[str, ...], config: dict, objective: str, held_mouse: str,
              seed: int, infected: tuple[str, ...], explain: bool = False, device: str = "cpu") -> dict[str, np.ndarray]:
     """Train (or load) one classifier on the seven other mice and predict the held-out mouse.
@@ -194,7 +194,7 @@ def fit_explanation_fold(ctx: Context, partition: Partition, held_mouse: str) ->
                  infected=tuple(mouse for mouse, label in labels.items() if label))
 
 
-# ------------------------------------------------------------------- composition-only reference
+# Composition-only reference
 def composition_lr(ctx: Context, partition: Partition) -> dict[str, np.ndarray]:
     """Logistic regression on the cluster fractions of each ROI, with the same held-out mice.
 
@@ -245,7 +245,7 @@ def composition_lr(ctx: Context, partition: Partition) -> dict[str, np.ndarray]:
     return ctx.store.compute(unit, fit, label="composition logistic regression", log=log)
 
 
-# ---------------------------------------------------------------------------------------- scores
+# Scores
 def scores(probability: np.ndarray, truth: np.ndarray) -> dict:
     """Number correct at the 0.5 cut-off and the ROC-AUC of a set of probabilities."""
     from sklearn.metrics import roc_auc_score

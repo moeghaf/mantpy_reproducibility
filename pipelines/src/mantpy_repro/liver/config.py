@@ -14,7 +14,7 @@ N_MICE = 8
 N_INFECTED = 4
 N_ALLOCATIONS = math.comb(N_MICE, N_INFECTED)      # 70 ways to call four of the eight mice infected
 
-# ----------------------------------------------------------- encoder, patch size and K (Supplementary Table 4)
+# Encoder, patch size and K (Supplementary Table 4)
 #: The 15 settings searched jointly. Every fitted encoder is clustered at every K.
 SPACE = {
     "patch_size": [5, 10, 15, 20],
@@ -53,12 +53,12 @@ SOBOL_SEED = 20261024
 N_SOBOL = 24
 TIE = 0.01
 
-#: First warm-start configuration of the paper's search (the lung selection, with K = 3).
+#: First starting configuration of the paper's search: a two-block CNN on 5-pixel patches, with K = 3.
 LUNG_START = {"patch_size": 5, "cnn_blocks": 2, "cnn_width": 16, "cnn_readout": "maxpool2", "cnn_activation": "relu",
               "cnn_latent": 256, "cnn_projection": "none", "cnn_temperature": 0.1, "cnn_augment": "default", "cnn_lr": 3e-3,
               "cnn_weight_decay": 1e-4, "cnn_epochs": 400, "cnn_batch": 512, "cnn_standardize": False, "n_clusters": 3}
 
-# ------------------------------------------------------------------------------- downstream analysis
+# Downstream analysis
 SPECIFICITY_EPS = 1e-3            # pseudocount of the infection-associated cluster rule
 SPECIFICITY_PRESENCE = 0.01       # a candidate cluster makes up at least 1% of every infected mouse's ECM patches
 SUBGRAPH_RADIUS = 40.0
@@ -67,7 +67,7 @@ CLASSIFIER_SEEDS = (0, 1, 2, 3, 4)
 LR_C_GRID = [0.01, 0.1, 1.0, 10.0]
 IG_STEPS = 50
 
-# -------------------------------------------------- within-fold classifier tuning (Supplementary Table 5)
+# Within-fold classifier tuning (Supplementary Table 5)
 GRAPH_TYPES = ["delaunay", "grid4", "grid8", "radius20", "radius30", "radius40", "radius50"]
 TUNING_HIDDEN = [16, 32, 64, 128, 256]
 TUNING_EPOCHS = [60, 120, 200, 300, 500]
@@ -141,7 +141,7 @@ def _digest(values: dict) -> str:
 
 
 def config_id(config: dict) -> str:
-    """Identity of an encoder and K, equal to the ID in the paper's records (without its ``liver6/`` prefix)."""
+    """Identity of an encoder and K, equal to the ID in ``paper_selection.json`` without its ``liver6/`` prefix."""
     return "c" + _digest(validate(config))
 
 
@@ -151,6 +151,7 @@ def encoder_id(config: dict) -> str:
 
 
 def original_config_id(config: dict) -> str:
+    """ID of the configuration as written in ``paper_selection.json``, where every ID starts with ``liver6/``."""
     return f"liver6/{config_id(config)}"
 
 

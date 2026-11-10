@@ -17,11 +17,11 @@ No condition, genotype or mouse label is used here.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
 
 import numpy as np
 
+from ..store import unique_suffix
 from .config import ANCHOR_SIZE, MARKERS, PATCH_SIZES
 
 COFACTOR = 1.0
@@ -69,7 +69,7 @@ def image_blocks(image: np.ndarray, size: int) -> np.ndarray:
 
 
 def block_features(blocks: np.ndarray) -> np.ndarray:
-    """Mean of each marker, then its standard deviation, per patch (float32, as in the paper's tables)."""
+    """Mean of each marker, then its standard deviation, per patch (float32, as in the paper's runs)."""
     return np.concatenate([blocks.mean(axis=(2, 3)).astype(np.float32), blocks.std(axis=(2, 3)).astype(np.float32)], axis=1)
 
 
@@ -153,7 +153,7 @@ class Prepared:
         self._tables: dict[int, PatchTable] = {}
         self._parents: dict[int, np.ndarray] | None = None
 
-    # -- images and metadata ----------------------------------------------------------------------
+    # Images and metadata
     def _load(self) -> None:
         import pandas as pd
 
@@ -199,7 +199,7 @@ class Prepared:
             self._load()
         return pd.read_csv(self.root / "bounds.csv").bound.to_numpy()
 
-    # -- patches ----------------------------------------------------------------------------------
+    # Patches
     def table(self, size: int) -> PatchTable:
         if size not in self._tables:
             path = self.root / f"patches_p{size:02d}.npz"
@@ -224,7 +224,7 @@ class Prepared:
             start += len(blocks)
         return np.ascontiguousarray(np.concatenate(out), dtype=np.float32)
 
-    # -- support ----------------------------------------------------------------------------------
+    # Support
     def parents(self, size: int) -> np.ndarray:
         """Parent row at ``size`` pixels of every anchor (5-pixel signal patch)."""
         if self._parents is None:
@@ -259,7 +259,10 @@ class Prepared:
 
 
 def _atomic(path: Path, write) -> None:
-    """Write through a temporary file so that an interrupted job leaves no half-written cache."""
-    temporary = path.with_name(f"{path.stem}.{os.getpid()}.part{path.suffix}")
+    """Write through a temporary file so that an interrupted job leaves no half-written cache.
+
+    The temporary name holds the host name and the process ID, so jobs on different nodes do not share it.
+    """
+    temporary = path.with_name(f"{path.stem}.{unique_suffix()}.part{path.suffix}")
     write(temporary)
     temporary.replace(path)

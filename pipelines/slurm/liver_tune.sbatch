@@ -1,12 +1,17 @@
 #!/bin/bash
 # Within-fold tuning of the classifier: one held-out mouse per array task (80 configurations, then
 # the selected one refitted with five seeds). SELECTION=search (default here) tunes on the partition
-# of this directory's own search. SELECTION=paper tunes on the partition deposited with the paper.
+# of this directory's own search and needs the 'freeze' stage to be finished. SELECTION=paper tunes
+# on the partition deposited with the paper: give it the RESULTS directory of the reproduction
+# (~/scratch/mantpy_liver by default), where the report reads this tuning.
 # A task that reaches the time limit continues from its finished configurations when resubmitted.
+# The command keeps its default of 16 CPU threads on the 8 CPUs requested. The fits run on the GPU,
+# and more threads than cores is slower but gives the same result. A request of 16 CPUs exceeds
+# the cores per GPU that some clusters allow.
 #
 # Usage (CSF3): mkdir -p logs; sbatch -p gpuL --export=ALL,VENV=<venv>,RESULTS=<dir> pipelines/slurm/liver_tune.sbatch
-# Then:         submit liver_reproduce_gpu.sbatch, liver_reproduce_cpu.sbatch and liver_report.sbatch
-#               with RESULTS=<dir>,SELECTION=search
+# Then:         liver_reproduce_gpu.sbatch with --dependency=afterok:<jobid>, liver_reproduce_cpu.sbatch and
+#               liver_report.sbatch, all with RESULTS=<dir>,SELECTION=search (commands in docs_liver.md)
 #SBATCH --job-name=liver_tune
 #SBATCH --array=0-7
 #SBATCH --gres=gpu:1

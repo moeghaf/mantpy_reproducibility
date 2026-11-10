@@ -24,7 +24,7 @@ _EPS = 1e-12
 TEMPERATURES = (0.5, 0.75, 1.0, 1.5, 2.0, 3.0)
 
 
-# --------------------------------------------------------------------------------------- features
+# Features
 def _composition(adjacency, labels, n_categories, targets, sources, recipe: FeatureRecipe, via=None):
     import mantpy as mt
 
@@ -71,7 +71,7 @@ def features_for(roi, cohort, config: Config, graphs: Graphs, labels: np.ndarray
                             config.context, config.features)
 
 
-# ---------------------------------------------------------------------------------------- learner
+# Learner
 class PriorModel:
     """Label-prior baseline: the training cluster frequencies, whatever the context."""
 
@@ -91,8 +91,9 @@ class LogisticModel:
     """Multinomial logistic regression with optional standardisation fitted on the training rows.
 
     ``none`` and ``l2`` use L-BFGS (2,000 iterations). ``l1`` and ``elasticnet`` use SAGA,
-    stopped after 200 iterations with tolerance 1e-3 as in the paper's runs. Probabilities are
-    floored at 1e-9 so a class absent from the training rows keeps a finite score.
+    stopped after 200 iterations with tolerance 1e-3 as in the paper's runs. A class absent
+    from the training rows gets probability 1e-9 before the rows are normalised, so it keeps a
+    finite score.
     """
 
     def __init__(self, recipe: LearnerRecipe, n_classes: int, seed: int = 0):
@@ -107,7 +108,7 @@ class LogisticModel:
         if recipe.standardize:
             self._scaler = StandardScaler()
             X = self._scaler.fit_transform(X)
-        # scikit-learn 1.8 removed the ``penalty`` argument; older versions need it.
+        # scikit-learn 1.8 deprecated the ``penalty`` argument; it is passed while it exists.
         named = "penalty" in inspect.signature(LogisticRegression).parameters
         penalty = {"penalty": None if recipe.penalty == "none" else recipe.penalty} if named else {}
         shared = dict(class_weight=recipe.class_weight, random_state=self.seed, **penalty)
@@ -120,7 +121,7 @@ class LogisticModel:
             self._model = LogisticRegression(C=recipe.C, l1_ratio=l1_ratio, solver="saga", max_iter=200, tol=1e-3,
                                              **shared)
         with warnings.catch_warnings():
-            # SAGA stops at its iteration limit by design, and scikit-learn comments on the
+            # SAGA stops at its iteration limit by design, and scikit-learn warns about the
             # penalty arguments differently in each version; neither is an error here.
             warnings.simplefilter("ignore", category=UserWarning)
             warnings.simplefilter("ignore", category=FutureWarning)
@@ -137,7 +138,7 @@ class LogisticModel:
         return out / out.sum(axis=1, keepdims=True)
 
 
-# --------------------------------------------------------------------------------------- cleaning
+# Cleaning
 def apply_temperature(proba: np.ndarray, temperature: float) -> np.ndarray:
     if temperature == 1.0:
         return proba
@@ -180,7 +181,7 @@ def clean_once(proba, observed, signal, xy, recipe: CleaningRecipe):
     return result.labels, result.anomaly_scores, result.relabelled
 
 
-# ---------------------------------------------------------------------------------------- metrics
+# Metrics
 def detection_metrics(anomaly: np.ndarray, is_artifact: np.ndarray, mask: np.ndarray) -> dict[str, float]:
     """ROC-AUC and average precision of the anomaly score for finding replaced labels within ``mask``."""
     from sklearn.metrics import average_precision_score, roc_auc_score
@@ -208,7 +209,7 @@ def reconstruction_metrics(pristine, observed, cleaned, is_artifact, signal) -> 
     }
 
 
-# ----------------------------------------------------------------------------------- fit and score
+# Fit and score
 def fit_model(cohort, train_rois: list[str], config: Config, cache: GraphCache, seed: int = 0):
     """Fit on the pristine signal patches of the training ROIs.
 

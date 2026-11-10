@@ -49,7 +49,7 @@ SPACE = {
     "gm_standardize": [False, True],
 }
 
-#: Starting configuration of the earlier studies. Its CNN is Mantpy's encoder with 2 x 2 average pooling.
+#: Baseline configuration of the paper's search. Its CNN is Mantpy's encoder with 2 x 2 average pooling.
 BASELINE = {
     "patch_size": 32, "neighbours": 40, "continuity_thresh": 0.5,
     "cnn_blocks": 3, "cnn_width": 16, "cnn_readout": "avgpool2", "cnn_activation": "relu", "cnn_latent": 96,
@@ -63,11 +63,11 @@ BASELINE = {
 CNN_AXES = ["patch_size", "cnn_blocks", "cnn_width", "cnn_readout", "cnn_activation", "cnn_latent", "cnn_projection",
             "cnn_temperature", "cnn_augment", "cnn_lr", "cnn_weight_decay", "cnn_epochs", "cnn_batch",
             "cnn_standardize", "cnn_window"]
-GRAPH_AXES = ["patch_size", "neighbours", "continuity_thresh", "edge_distance", "edge_orientation", "edge_continuity"]
 
-#: Axes added late in the original study; their default is left out of digests so IDs match the paper's.
+#: Settings added after the paper's first configurations were recorded. Their default value is left
+#: out of the digest, so that configuration IDs equal those in the paper's records.
 _LATE_AXIS_DEFAULTS = {"cnn_window": 1}
-#: Name of each image in the original study, used so configuration IDs equal those in the paper's records.
+#: Name of each image in the paper's records, where it is the first part of a configuration's full ID.
 _ORIGINAL_ROI = {"intestine1": "original", "intestine2": "HBM735.PSTF.274"}
 
 
@@ -96,7 +96,11 @@ def validate(config: dict) -> dict:
 
 
 def repair(config: dict) -> tuple[dict, list[str]]:
-    """Map a sampled point onto the valid space (as in the original search) and report what changed."""
+    """Map a sampled point onto the valid space and report what changed.
+
+    The first two rules are those of the paper's search. The third maps GINE without edge
+    features to GIN; the paper's search code raised an error for such a point.
+    """
     config, notes = dict(config), []
     if config["patch_size"] == 16 and config["neighbours"] == 80:
         config["neighbours"] = 40
@@ -127,10 +131,6 @@ def original_config_id(image: str, config: dict) -> str:
 
 def cnn_id(config: dict) -> str:
     return "cnn" + _digest({key: config[key] for key in CNN_AXES})
-
-
-def graph_id(config: dict) -> str:
-    return "g" + _digest({key: config[key] for key in GRAPH_AXES})
 
 
 def has_baseline_cnn(config: dict) -> bool:

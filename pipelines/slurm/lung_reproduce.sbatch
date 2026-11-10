@@ -5,7 +5,8 @@
 # The fits can also run one per array task: `mantpy-lung final --task-index N` (see `mantpy-lung tasks`).
 #
 # Usage (CSF3): mkdir -p logs; sbatch -p multicore --export=ALL,VENV=<venv> pipelines/slurm/lung_reproduce.sbatch
-# Then:         sbatch -p interactive --dependency=afterok:<jobid> --export=ALL,VENV=<venv> pipelines/slurm/lung_report.sbatch
+# Then:         sbatch -p interactive --dependency=afterany:<jobid> --export=ALL,VENV=<venv> pipelines/slurm/lung_report.sbatch
+#               (afterany: the report also runs when fits failed, and names what is missing)
 #SBATCH --job-name=lung_final
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G

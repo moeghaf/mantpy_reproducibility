@@ -1,10 +1,14 @@
 #!/bin/bash
-# Final fits of the selected settings: one fit per array task.
-# Tasks 0-21 are image 1 and 22-43 are image 2 (see `mantpy-intestine tasks`).
+# Final stage with the selected settings: one task per array task (a GraphMAE fit, the baselines
+# or the K sweep).
+# Tasks 0-21 are image 1 and 22-43 are image 2 (see `mantpy-intestine tasks`). For one image only,
+# submit with --array=0-21 or --array=22-43.
 # SELECTION=paper (default) uses the paper's settings; SELECTION=search uses this directory's search result.
 #
-# Usage (CSF3): mkdir -p logs; sbatch -p gpuL --export=ALL,VENV=<venv> pipelines/slurm/intestine_reproduce.sbatch
-# Then:         sbatch -p interactive --dependency=afterok:<jobid> --export=ALL,VENV=<venv> pipelines/slurm/intestine_report.sbatch
+# First:        mkdir -p logs; sbatch -p interactive --export=ALL,VENV=<venv> pipelines/slurm/intestine_prepare.sbatch
+# Usage (CSF3): sbatch -p gpuL --dependency=afterok:<prepare job> --export=ALL,VENV=<venv> pipelines/slurm/intestine_reproduce.sbatch
+# Then:         sbatch -p interactive --dependency=afterany:<jobid> --export=ALL,VENV=<venv> pipelines/slurm/intestine_report.sbatch
+# The report job follows with afterany, because the report names the tasks without a result.
 #SBATCH --job-name=intestine_final
 #SBATCH --array=0-43
 #SBATCH --gres=gpu:1
@@ -20,4 +24,4 @@ source "$VENV/bin/activate"
 echo "GPU: $(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader | head -n1) on $(hostname)"
 IMAGES=(intestine1 intestine2)
 IMAGE=${IMAGES[$((SLURM_ARRAY_TASK_ID / 22))]}
-mantpy-intestine final --image "$IMAGE" --task-index $((SLURM_ARRAY_TASK_ID % 22))     --selection "${SELECTION:-paper}" --results "$RESULTS" --device cuda
+mantpy-intestine final --image "$IMAGE" --task-index $((SLURM_ARRAY_TASK_ID % 22)) --selection "${SELECTION:-paper}" --results "$RESULTS" --device cuda

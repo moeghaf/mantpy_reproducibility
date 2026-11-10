@@ -1,5 +1,5 @@
 {
-"description":"Configurations evaluated in the paper's label-free search of the 28 settings (Supplementary Table 3), with the recorded three-seed stability and coverage. No annotation was used to produce these records.",
+"description":"Configurations evaluated in the paper's label-free search of the 28 settings (Supplementary Table 3), with the recorded seed stability (stability3, over the n_seeds seeds the configuration was run with) and coverage. No annotation was used to produce these records.",
 "images":{
 "intestine1":[
 {

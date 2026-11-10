@@ -2,8 +2,8 @@
 # Download the six lung ROIs, extract the ECM patches and compute the ECM partition once,
 # before any array job starts. CPU only.
 # The compute node needs internet access for the first download; otherwise run
-#   mantpy-lung prepare --results "$RESULTS" --device cpu
-# on the login node.
+#   mantpy-lung prepare --results ~/scratch/mantpy_lung --device cpu
+# on the login node (the path is the default of RESULTS below).
 #
 # Usage (CSF3): mkdir -p logs; sbatch -p interactive --export=ALL,VENV=<venv> pipelines/slurm/lung_prepare.sbatch
 #SBATCH --job-name=lung_prepare

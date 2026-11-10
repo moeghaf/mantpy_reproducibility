@@ -2,6 +2,8 @@
 # Quick check of an installation: every stage with three trials per study, one corruption
 # realisation, two random edge rules and one held-out ROI in the controls. CPU only.
 # Its results are not the paper's.
+# The first command searches and fits the settings it selects; the second fits the paper's
+# settings. The report folder then holds the report of the second command.
 #
 # Usage (CSF3): mkdir -p logs; sbatch -p multicore --export=ALL,VENV=<venv> pipelines/slurm/lung_smoke.sbatch
 #SBATCH --job-name=lung_smoke

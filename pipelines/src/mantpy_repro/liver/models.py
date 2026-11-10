@@ -15,7 +15,7 @@ KMEANS = {"init": "k-means++", "n_init": 10, "max_iter": 300, "tol": 1e-4, "algo
 ENCODER_THREADS = 2          # CPU threads of the paper's encoder fits and K-means runs
 
 
-# ------------------------------------------------------------------------------------------- CNN
+# CNN
 def conv_encoder(*, in_size, in_channels, latent_dim, blocks, width, readout, activation):
     """Stride-2 convolution blocks, a readout, then a linear layer (layer order as in the paper)."""
     from torch import nn
@@ -106,7 +106,7 @@ def cluster(embedding: np.ndarray, k: int, seed: int) -> np.ndarray:
         return KMeans(n_clusters=k, random_state=seed, **KMEANS).fit_predict(embedding).astype(np.int16)
 
 
-# ------------------------------------------------------------------------------------ classifier
+# Classifier
 def node_gnn(config: dict, in_channels: int):
     """``Linear -> activation -> [convolution -> norm -> activation -> dropout (+ residual)] x L -> Linear``.
 

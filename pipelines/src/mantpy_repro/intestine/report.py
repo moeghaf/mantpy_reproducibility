@@ -9,18 +9,23 @@ import numpy as np
 
 from .config import config_id
 from .core import Context, log
-from .final import FINAL_SEEDS, K_VALUES, label_free_k
+from .final import FINAL_SEEDS, K_VALUES, final_tasks, label_free_k
 from .freeze import selected_config
 from .scoring import ari_from_contingency, macro_f1_from_contingency
 
-#: Largest absolute difference in ARI treated as agreement with the paper, by kind of quantity.
+#: Largest absolute difference in ARI treated as agreement with the paper, by kind of quantity. The
+#: paper's values were computed on an NVIDIA RTX 4070 SUPER and the tolerances are set for that GPU
+#: model; on another model more rows fall outside them (README, "Notes on exact reproduction").
 TOLERANCE = {
-    "deterministic": 0.005,   # baselines and CNN K-means: no GPU randomness beyond the CNN itself
-    "graphmae": 0.02,         # GraphMAE differs slightly between GPUs and library versions
+    "deterministic": 0.005,   # Patch-mean K-means and Multi-Otsu
+    "pixel_kmeans": 0.01,     # changes with the scikit-learn version (image 1: 0.196 with 1.7.2, 0.203 with 1.9.1)
+    "cnn_kmeans": 0.005,
+    "graphmae": 0.02,         # GraphMAE and its two edge controls
     "stability": 0.05,        # seed stability at one K moves with small changes in three partitions
 }
+PAPER_GPU = "NVIDIA RTX 4070 SUPER"
 SCORE_COLUMNS = ["image", "method", "seed", "ARI", "macro_F1"]
-COMPARE_COLUMNS = ["image", "quantity", "seed", "kind", "this_run", "paper", "difference", "status"]
+COMPARE_COLUMNS = ["image", "quantity", "seed", "kind", "this_run", "paper", "difference", "tolerance", "status"]
 VARIANTS = {"full": "GraphMAE", "shuffled_edges": "GraphMAE, shuffled edges", "no_edges": "GraphMAE, no edges",
             "encoder_gin": "GraphMAE (GIN, no edge features)"}
 
@@ -34,6 +39,25 @@ def _arrays(folder: Path):
         return None
     with np.load(folder / "arrays.npz", allow_pickle=False) as saved:
         return {name: saved[name] for name in saved.files}
+
+
+def unfinished_tasks(ctx: Context, image: str, selection: str = "paper") -> list[str]:
+    """Final tasks of ``image`` that have no stored result for the selected configuration."""
+    config, _ = selected_config(ctx, image, selection)
+    identity, root = config_id(config), ctx.store.root
+    names = []
+    for task in final_tasks(image):
+        kind, seed = task["kind"], task["seed"]
+        if kind in ("baselines", "k_sweep"):
+            folder, name = root / kind / image / identity, kind
+        elif kind == "gin" and config["edge_use"] == "gin":
+            continue      # the final stage has no GIN ablation for a configuration that already uses GIN
+        else:
+            variant = "encoder_gin" if kind == "gin" else kind
+            folder, name = root / "runs" / image / identity / variant / f"seed_{seed}", f"{kind} seed {seed}"
+        if not (folder / "completion.json").exists():
+            names.append(f"{image} {name}")
+    return names
 
 
 def score_image(ctx: Context, image: str, selection: str = "paper"):
@@ -91,7 +115,7 @@ def k_table(ctx: Context, image: str, selection: str = "paper"):
 
 
 def compare_with_paper(scores, k_sweep, image: str):
-    """One row per number reported in the paper: this run, the paper, the difference and a status.
+    """One row per number compared with the paper: this run, the paper, the difference, the tolerance and a status.
 
     Status is ``within`` or ``outside`` the tolerance of that kind of quantity, or ``not run``
     when the fit is missing, so an incomplete run cannot look like a complete agreement.
@@ -102,16 +126,16 @@ def compare_with_paper(scores, k_sweep, image: str):
     rows = []
 
     def add(quantity, seed, kind, value, paper):
+        row = {"image": image, "quantity": quantity, "seed": seed, "kind": kind, "paper": paper,
+               "tolerance": TOLERANCE[kind]}
         if value is None:
-            rows.append({"image": image, "quantity": quantity, "seed": seed, "kind": kind, "this_run": np.nan,
-                         "paper": paper, "difference": np.nan, "status": "not run"})
+            rows.append({**row, "this_run": np.nan, "difference": np.nan, "status": "not run"})
             return
         status = "within" if abs(value - paper) <= TOLERANCE[kind] else "outside"
-        rows.append({"image": image, "quantity": quantity, "seed": seed, "kind": kind, "this_run": value,
-                     "paper": paper, "difference": value - paper, "status": status})
+        rows.append({**row, "this_run": value, "difference": value - paper, "status": status})
 
     per_seed = {
-        "CNN K-means": (reference["per_seed"]["CNN K-means"], "deterministic"),
+        "CNN K-means": (reference["per_seed"]["CNN K-means"], "cnn_kmeans"),
         "GraphMAE": (reference["controls_per_seed"]["full"], "graphmae"),
         "GraphMAE, shuffled edges": (reference["controls_per_seed"]["shuffled_edges"], "graphmae"),
         "GraphMAE, no edges": (reference["controls_per_seed"]["no_edges"], "graphmae"),
@@ -128,37 +152,40 @@ def compare_with_paper(scores, k_sweep, image: str):
         single[name] = reference["method_comparison"][name]["ari_mean"]
     for method, paper in single.items():
         mine = scores[scores["method"] == method]["ARI"]
-        add(f"{method}, ARI", 0, "deterministic", float(mine.iloc[0]) if len(mine) else None, paper)
+        kind = "pixel_kmeans" if method == "Pixel K-means" else "deterministic"
+        add(f"{method}, ARI", 0, kind, float(mine.iloc[0]) if len(mine) else None, paper)
     mine = k_sweep.set_index("k")["graphmae_seed_stability"] if len(k_sweep) else {}
     for k, paper in zip(reference["k_sweep"]["k"], reference["k_sweep"]["seed_stability"]):
         add(f"GraphMAE seed stability at K = {k}", "0-2", "stability", float(mine[k]) if len(k_sweep) else None, paper)
     paper_k = reference["k_sweep"]["label_free_k"]
+    row = {"image": image, "quantity": "label-free choice of K", "seed": "0-2", "kind": "choice", "paper": paper_k,
+           "tolerance": 0.0}
     if len(k_sweep):
         chosen = int(k_sweep.loc[k_sweep["label_free_k"], "k"].iloc[0])
-        rows.append({"image": image, "quantity": "label-free choice of K", "seed": "0-2", "kind": "choice",
-                     "this_run": chosen, "paper": paper_k, "difference": chosen - paper_k,
+        rows.append({**row, "this_run": chosen, "difference": chosen - paper_k,
                      "status": "within" if chosen == paper_k else "outside"})
     else:
-        rows.append({"image": image, "quantity": "label-free choice of K", "seed": "0-2", "kind": "choice",
-                     "this_run": np.nan, "paper": paper_k, "difference": np.nan, "status": "not run"})
+        rows.append({**row, "this_run": np.nan, "difference": np.nan, "status": "not run"})
     return pd.DataFrame(rows, columns=COMPARE_COLUMNS)
 
 
 def write_report(ctx: Context, images, selection: str = "paper") -> int:
     """Write the score tables and the comparison with the paper.
 
-    Returns 0 when every compared number was computed, 1 when some fits are missing.
+    The tables hold the results that exist. Returns 0 when every final task has a result and 1
+    when some are missing; the missing tasks are printed.
     """
     import pandas as pd
 
     out = ctx.store.root / "report"
     out.mkdir(parents=True, exist_ok=True)
-    all_scores, all_k, all_compare = [], [], []
+    all_scores, all_k, all_compare, unfinished = [], [], [], []
     for image in images:
         scores = score_image(ctx, image, selection)
         k_sweep = k_table(ctx, image, selection)
         all_scores.append(scores)
         all_k.append(k_sweep)
+        unfinished += unfinished_tasks(ctx, image, selection)
         if ctx.smoke:
             continue
         if scores.attrs["config_id"] == paper_reference()["images"][image]["joint_config_id"]:
@@ -175,24 +202,32 @@ def write_report(ctx: Context, images, selection: str = "paper") -> int:
     k_sweep.to_csv(out / "k_sweep.csv", index=False)
     print("\nScores (ARI against the manual annotation)")
     print(summary.round(3).to_string(index=False) if len(summary) else "no finished fits")
+    if unfinished:
+        print(f"\nFinal tasks without a result ({len(unfinished)}): " + ", ".join(unfinished))
     if ctx.smoke:
         print("\nSmoke run: scores are from a crop with tiny training budgets and are not compared with the paper.")
-        return 0
-    missing = 0
-    if all_compare:
+    if not all_compare:
+        # A comparison written by an earlier report of another configuration would not belong to these tables.
+        (out / "comparison_with_paper.csv").unlink(missing_ok=True)
+    else:
         compare = pd.concat(all_compare, ignore_index=True)
         compare.to_csv(out / "comparison_with_paper.csv", index=False)
-        headline = compare[compare["seed"].astype(str).isin(["mean", "0"]) | (compare["kind"] == "choice")]
-        print("\nComparison with the paper (means, single runs and the choice of K)")
-        print(headline.drop(columns="kind").round(4).to_string(index=False))
+        single = [f"{name}, ARI" for name in ("Pixel K-means", "Patch-mean K-means", "Multi-Otsu")]
+        headline = compare[(compare["seed"].astype(str) == "mean") | compare["quantity"].isin(single)
+                           | (compare["kind"] == "choice")]
+        print("\nComparison with the paper (means, single runs and the choice of K; "
+              "every row is in comparison_with_paper.csv)")
+        print(headline.drop(columns=["kind", "tolerance"]).round(4).to_string(index=False))
         counts = compare["status"].value_counts()
         missing = int(counts.get("not run", 0))
-        print(f"\nOf {len(compare)} numbers reported in the paper: {int(counts.get('within', 0))} within tolerance, "
+        print(f"\nOf {len(compare)} numbers compared with the paper: {int(counts.get('within', 0))} within tolerance, "
               f"{int(counts.get('outside', 0))} outside, {missing} not run.")
         print("Tolerances (absolute ARI): " + ", ".join(f"{kind} {value}" for kind, value in TOLERANCE.items()))
         outside = compare[compare["status"] == "outside"]
         if len(outside):
             print("\nOutside the tolerance:")
-            print(outside.drop(columns="kind").round(4).to_string(index=False))
+            print(outside.drop(columns=["kind", "tolerance"]).round(4).to_string(index=False))
+            print(f"\nThe paper's values were computed on an {PAPER_GPU}. On another GPU model, rows outside the "
+                  "tolerance are expected (README, 'Notes on exact reproduction').")
     log(f"report written to {out}")
-    return 1 if missing else 0
+    return 1 if unfinished else 0
