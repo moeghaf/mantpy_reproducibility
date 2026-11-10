@@ -16,18 +16,22 @@ Code and data to reproduce every figure of
 
 ## 1. Notebooks
 
-One notebook per figure. Each refits the analysis from the raw images, draws every panel and prints
-each value beside the paper's. The search for the settings is not rerun.
+One notebook per figure. Each refits the analysis from the raw images, draws every panel and ends
+with a table of the paper's results beside its own. The search for the settings is not rerun.
 
 | Figure | Notebook | Runtime | Hardware | Colab |
 |---|---|---|---|---|
-| 2 · Small intestine: tissue layers from collagen IV | [mantpy_intestine_fig2.ipynb](notebooks/mantpy_intestine_fig2.ipynb) | 27 min | GPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_intestine_fig2.ipynb) |
+| 2 · Small intestine: tissue layers from collagen IV | [mantpy_intestine_fig2.ipynb](notebooks/mantpy_intestine_fig2.ipynb) | 30 min | GPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_intestine_fig2.ipynb) |
 | 3 · Liver: ECM composition and organisation in infection | [mantpy_liver_fig3.ipynb](notebooks/mantpy_liver_fig3.ipynb) | 6 min | GPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_liver_fig3.ipynb) |
-| 4 · Lung: cell–matrix association and label recovery | [mantpy_lung_fig4.ipynb](notebooks/mantpy_lung_fig4.ipynb) | 52 s | CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_lung_fig4.ipynb) |
+| 4 · Lung: cell–matrix association and label recovery | [mantpy_lung_fig4.ipynb](notebooks/mantpy_lung_fig4.ipynb) | 1 min | CPU | [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/moeghaf/mantpy_reproducibility/blob/main/notebooks/mantpy_lung_fig4.ipynb) |
 
-Runtimes exclude installation and downloads and were measured on desktop computers (intestine with
-an NVIDIA RTX 4070 SUPER, liver with an RTX 3080 Ti, lung on the CPU). The notebooks are stored with their outputs, so the results can be read without running
-anything. Results are close to the paper's but not identical, because every model is refitted.
+Runtimes exclude installation and downloads and were measured on a desktop computer (intestine and
+liver with an NVIDIA RTX 4070 SUPER, lung on the CPU). On Google Colab's free runtimes, with the
+downloads, the lung notebook took 4 minutes (CPU), the liver notebook 6 minutes and the intestine
+notebook 79 minutes (both on a T4 GPU), plus 2 to 4 minutes of installation.
+
+The notebooks are stored with their outputs, so the results can be read without running anything.
+Results are close to the paper's but not identical, because every model is refitted.
 
 ## 2. Full scripts
 
@@ -63,11 +67,13 @@ plot_figure4().savefig("fig4.pdf")
 
 ## Requirements
 
-- Python 3.11 to 3.13 and Mantpy 1.2.0 or newer (`pip install "mantpy[patch,gnn]"`). The packages for
-  each notebook are listed in its `*_requirements.txt` file; on Colab the first cell installs them.
+- Python 3.11 to 3.13 and Mantpy 1.3.0 or newer (`pip install "mantpy[patch,gnn]"`). The packages for
+  each notebook are listed in its `*_requirements.txt` file.
+- On Colab the first cell installs the packages and then restarts the runtime once. Colab reports
+  the restart as a crashed session; choose Runtime > Run all again and the notebook runs to the end.
 - Intestine and liver need a CUDA GPU; lung runs on a CPU.
 - Data download automatically from Zenodo and the HuBMAP Data Portal on first use.
-- Tested on Windows 11.
+- Tested on Windows 11 and on Google Colab (free CPU and T4 GPU runtimes).
 
 ## Links
 
